@@ -1,0 +1,22 @@
+<nav aria-label="{{ aria_label }}">
+    <ul class="pagination">
+        <li>
+        <a href="?q=&page={{ previous_page }}" aria-label="Previous">
+            <span aria-hidden="true">&laquo;</span>
+        </a>
+        </li>
+        {% for i in left %}
+            <li><a href="?q=&page={{ i }}">{{ i }}</a></li>
+        {% endfor %}
+        <li class="active"><a>{{ current }}</a></li>
+        {% for i in right %}
+            <li><a href="?q=&page={{ i }}">{{ i }}</a></li>
+        {% endfor %}
+        <li>
+        <a href="?q=&page={{ next_page }}" aria-label="Next">
+            <span aria-hidden="true">&raquo;</span>
+        </a>
+        </li>
+    </ul>
+</nav>
+    

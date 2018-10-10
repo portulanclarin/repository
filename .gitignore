@@ -1,0 +1,8 @@
+*.pyc
+/.python-version
+/deps/
+/static/
+/metashare/static/metashare/fonts/glyphicons*
+/metashare/static/metashare/*/bootstrap*
+/metashare/static/metashare/*/jquery*
+/env-overrides.sh

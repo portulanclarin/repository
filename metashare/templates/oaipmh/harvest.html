@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}
+ &ndash; Import OAI-PMH &ndash;
+{% endblock %}
+
+{% block content %}
+
+{% if error_str %}
+    <div class="error">{{ error_str }}</div>
+{% endif %}
+
+<div class="content_box">
+    <h2>OAI-PMH: Harvest metadata records</h2>
+          <form class="form_helper" action="{% url metashare.views.frontpage %}oaipmh/harvest/" method="post">
+              <table>
+                {% csrf_token %}
+                {{ form_input.as_table }}
+                <tr><td colspan="2">
+                        <input class="button middle_button" type="submit" value="Process" />
+                        <span style="margin:10px; white-space:nowrap;">
+                            <input class="button gray_button" type="submit" value="List Metadata Formats" name="verb_List Metadata Formats" />
+                            <input class="button gray_button" type="submit" value="List Sets" name="verb_List Sets" />
+                            <input class="button gray_button" type="submit" value="Identify Server" name="verb_Identify Server" />
+                            <input class="button gray_button" type="submit" value="List Records" name="verb_List Records" />
+                        </span>
+                    </td>
+                </tr>
+              </table>
+          </form>
+      </div>
+
+
+    <br >
+    {% if data_dict %}
+        <div style="min-height:40px; ">
+            <span style="float:left">
+                 <h4>Result: {{ data_dict_title }}</h4>
+            </span>
+            <span style="float:right">
+                Info detail:{{ data_info }}
+            </span>
+        </div>
+        <div class="content_box">
+        <table class="oaipmh_table">
+            {% for k, v in data_dict.iteritems %}
+                <tr>
+                    <td class="table-key"><em>{{ k }}</em></td>
+                    <td class="table-value">{{ v }}</td>
+                </tr>
+            {% endfor %}
+        </table>
+        </div>
+    {% endif %}
+
+    {% if javascript_for_id %}
+
+        <script language="JavaScript">
+            $(document).ready(function() {
+                $('table.oaipmh_table > tbody > tr').each(function() {
+                    $(this).click(function () {
+                        {% if javascript_for_id == 1 %}
+                            $('#id_itemid').val( $(".table-value", this).text() );
+                            $('#id_verb').val( '{{ import_verb }}' );
+                        {% else %}{% if javascript_for_id == 2 %}
+                            $('#id_metadata_str').val( $(".table-key", this).text() );
+                        {% endif %}{% endif %}
+                    });
+                    $(this).hover(
+                            function () {
+                                $(this).css( 'cursor', 'pointer' );
+                                $(this).css( 'background-color', 'rgba(10, 0, 0, 200)' );
+                            },
+                            function () {
+                                $(this).css( 'cursor', 'pointer' );
+                                $(this).css( 'background-color', '' );
+                            }
+                    );
+                });
+            });
+
+        </script>
+
+    {% endif %}
+
+</div>
+{% endblock %}

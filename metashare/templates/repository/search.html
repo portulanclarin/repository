@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+{% load static from staticfiles %}
+{% load pagination %}
+
+{% block title %}
+Search and Browse &ndash; META-SHARE
+{% endblock %}
+
+{% block breadcrumbs %}
+<ol class="breadcrumb">
+    <li><a href="/">Home</a></li>
+    <li>Repository</li>
+</ol>
+{% endblock %}
+
+{% block content %}
+{% spaceless %}
+<script language="javascript">
+    $(document).ready(function () {
+
+        $("div.filter").each(function () {
+            var allDds = $(this).children("div").not('.subresult').nextUntil("div.accordion");
+            if (allDds.length > 4) {
+                // for 5 or less items we don't want to collapse, however, including the "more" link we would like to have at most 5 <div>s
+	            var hideableDds = allDds.has("a.addableFacet"); // never hide selected facet items
+	            if (hideableDds.length > 1) {
+                    // don't replace a single item with a "more" link
+                    hiddenDds = hideableDds.slice(
+                        Math.max(0, 4 - (allDds.length - hideableDds.length))
+                    ).hide();
+                    var moreTxt = 'more', lessTxt = 'less';
+                    hiddenDds.last().after($("<div><a href='#'>" + moreTxt + "</a></div>")
+                        .children().first().click({ hiddenDds: hiddenDds }, function (e) {
+                            e.preventDefault();
+                            $(this).text($(this).text() == moreTxt ? lessTxt : moreTxt);
+                            e.data.hiddenDds.slideToggle();
+                        }).parent());
+                }
+            }
+        });
+
+        $("div.filter").hide();
+
+        $("div.accordion").each(function () {
+            $(this).next("div.filter").find("a.removableFacet").parents("div.filter").show();
+            addStatus($(this));
+        });
+
+        $("div.accordion.expanded").each(function () {
+            if ($(this).next("div.filter").find("a.removableFacet").length > 0) {
+                $(this).addClass("selected");
+            }
+        });
+
+        $("div.accordion").click(function () {
+            if ($(this).next("div.filter").attr("style") == "display: none;") {
+                $(this).addClass('expanded');
+                $(this).removeClass('collapsed');
+            } else {
+                $(this).addClass('collapsed');
+                $(this).removeClass('expanded');
+            }
+            $(this).next("div.filter").slideToggle();
+        });
+    });
+
+    function addStatus(filter) {
+        if (filter.next("div.filter").attr("style") == "display: none;") {
+            filter.addClass('collapsed');
+            filter.removeClass('expanded');
+        } else {
+            filter.addClass('expanded');
+            filter.removeClass('collapsed');
+        }
+    }
+</script>
+
+<div class="row">
+    <div class="content_box col-md-9">
+        <form id="search-bar" action="." method="get">
+            {{ form.non_field_errors }}
+            <div class="input-group">
+                <input name="q" id="id_q" type="text" class="form-control">
+                <span class="input-group-btn">
+                    <input id="search_button" class="btn btn-primary" type="submit" value="Search"></button>
+                    </span>
+            </div>
+        </form>
+
+        <div class="panel borderless">
+
+            {% pagination page.number results_per_page paginator.num_pages|add:"1" "Search results navigation" %}
+            <p align="center">Page {{page.number}} of <span id="numberOfPages">{{paginator.num_pages}}</span> ({{results_per_page}} results per page)</p>
+
+            <div class="panel borderless">
+                {% for result in page.object_list %}
+                    {{ result.rendered_result|safe }}
+                {% endfor %}
+                </div>
+
+            {% pagination page.number results_per_page paginator.num_pages|add:"1" "Search results navigation" %}
+            <p align="center">Page {{page.number}} of <span id="numberOfPages">{{paginator.num_pages}}</span> ({{results_per_page}} results per page)</p>
+
+        </div>
+
+    </div>
+
+    <div class="right_box col-md-3">
+
+        <div class="borderless panel panel-default">
+            <div class="panel-body">
+                <h4>Order by:</h4>
+                <select class="form-control" name="ordering" onChange="window.location.href=this.value;">
+                    <option value="?q={{ query|urlencode }}{% for key, values in request.GET.iterlists %}{% if key = 'selected_facets' %}{% for facet in values %}&amp;selected_facets={{ facet|urlencode }}{% endfor %}{% endif %}{% endfor %}&amp;sort=resourcename_asc" {% if 'sort' in request.GET %}{% for key, values in request.GET.iterlists %}{% if key = 'sort' %}{% if values.0 == "resourcename_asc" %} selected=true{% endif %}{% endif %}{% endfor %}{% endif %}>Resource Name A-Z</option>
+                    <option value="?q={{ query|urlencode }}{% for key, values in request.GET.iterlists %}{% if key = 'selected_facets' %}{% for facet in values %}&amp;selected_facets={{ facet|urlencode }}{% endfor %}{% endif %}{% endfor %}&amp;sort=resourcename_desc" {% if 'sort' in request.GET %}{% for key, values in request.GET.iterlists %}{% if key = 'sort' %}{% if values.0 == "resourcename_desc" %} selected=true{% endif %}{% endif %}{% endfor %}{% endif %}>Resource Name Z-A</option>
+                    <option value="?q={{ query|urlencode }}{% for key, values in request.GET.iterlists %}{% if key = 'selected_facets' %}{% for facet in values %}&amp;selected_facets={{ facet|urlencode }}{% endfor %}{% endif %}{% endfor %}&amp;sort=resourcetype_asc" {% if 'sort' in request.GET %}{% for key, values in request.GET.iterlists %}{% if key = 'sort' %}{% if values.0 == "resourcetype_asc" %} selected=true{% endif %}{% endif %}{% endfor %}{% endif %}>Resource Type A-Z</option>
+                    <option value="?q={{ query|urlencode }}{% for key, values in request.GET.iterlists %}{% if key = 'selected_facets' %}{% for facet in values %}&amp;selected_facets={{ facet|urlencode }}{% endfor %}{% endif %}{% endfor %}&amp;sort=resourcetype_desc" {% if 'sort' in request.GET %}{% for key, values in request.GET.iterlists %}{% if key = 'sort' %}{% if values.0 == "resourcetype_desc" %} selected=true{% endif %}{% endif %}{% endfor %}{% endif %}>Resource Type Z-A</option>
+                    <option value="?q={{ query|urlencode }}{% for key, values in request.GET.iterlists %}{% if key = 'selected_facets' %}{% for facet in values %}&amp;selected_facets={{ facet|urlencode }}{% endfor %}{% endif %}{% endfor %}&amp;sort=mediatype_asc" {% if 'sort' in request.GET %}{% for key, values in request.GET.iterlists %}{% if key = 'sort' %}{% if values.0 == "mediatype_asc" %} selected=true{% endif %}{% endif %}{% endfor %}{% endif %}>Media Type A-Z</option>
+                    <option value="?q={{ query|urlencode }}{% for key, values in request.GET.iterlists %}{% if key = 'selected_facets' %}{% for facet in values %}&amp;selected_facets={{ facet|urlencode }}{% endfor %}{% endif %}{% endfor %}&amp;sort=mediatype_desc" {% if 'sort' in request.GET %}{% for key, values in request.GET.iterlists %}{% if key = 'sort' %}{% if values.0 == "mediatype_desc" %} selected=true{% endif %}{% endif %}{% endfor %}{% endif %}>Media Type Z-A</option>
+                    <option value="?q={{ query|urlencode }}{% for key, values in request.GET.iterlists %}{% if key = 'selected_facets' %}{% for facet in values %}&amp;selected_facets={{ facet|urlencode }}{% endfor %}{% endif %}{% endfor %}&amp;sort=languagename_asc" {% if 'sort' in request.GET %}{% for key, values in request.GET.iterlists %}{% if key = 'sort' %}{% if values.0 == "languagename_asc" %} selected=true{% endif %}{% endif %}{% endfor %}{% endif %}>Language Name A-Z</option>
+                    <option value="?q={{ query|urlencode }}{% for key, values in request.GET.iterlists %}{% if key = 'selected_facets' %}{% for facet in values %}&amp;selected_facets={{ facet|urlencode }}{% endfor %}{% endif %}{% endfor %}&amp;sort=languagename_desc" {% if 'sort' in request.GET %}{% for key, values in request.GET.iterlists %}{% if key = 'sort' %}{% if values.0 == "languagename_desc" %} selected=true{% endif %}{% endif %}{% endfor %}{% endif %}>Language Name Z-A</option>
+
+                    {% comment %} <option value="?q={{ query|urlencode }}{% for key, values in request.GET.iterlists %}{% if key = 'selected_facets' %}{% for facet in values %}&amp;selected_facets={{ facet|urlencode }}{% endfor %}{% endif %}{% endfor %}&amp;sort=dl_count_desc" {% if 'sort' in request.GET %}{% for key, values in request.GET.iterlists %}{% if key = 'sort' %}{% if values.0 == "dl_count_desc" %} selected=true{% endif %}{% endif %}{% endfor %}{% endif %}>Number of Downloads</option>
+                    <option value="?q={{ query|urlencode }}{% for key, values in request.GET.iterlists %}{% if key = 'selected_facets' %}{% for facet in values %}&amp;selected_facets={{ facet|urlencode }}{% endfor %}{% endif %}{% endfor %}&amp;sort=view_count_desc" {% if 'sort' in request.GET %}{% for key, values in request.GET.iterlists %}{% if key = 'sort' %}{% if values.0 == "view_count_desc" %} selected=true{% endif %}{% endif %}{% endfor %}{% endif %}>Number of Views</option> {% endcomment %}
+
+                </select>
+            </div>
+        </div>
+
+        <div class="borderless panel panel-default">
+            <div class="panel-body">
+                <h4>Filter by</h4>
+                <div id="searchFilters">
+                    {% for filter in filters %} {% include "repository/filter.html" with filter=filter %} {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endspaceless %}
+{% endblock %}

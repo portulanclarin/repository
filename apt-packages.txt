@@ -1,0 +1,33 @@
+# many of these packages are needed to compile Python; be careful if you are about
+# to remove something from this list
+build-essential
+curl
+gettext
+git
+libbz2-dev
+libfreetype6-dev
+libjpeg-dev
+liblzma-dev
+libncurses5-dev
+libncursesw5-dev
+libpq-dev
+libreadline-dev
+libsqlite3-dev
+libssl-dev
+libz-dev
+libz-dev
+llvm
+make
+maven
+mercurial
+moreutils
+openjdk-9-jdk-headless
+pcregrep
+php-cli
+php-gd
+unzip
+wget
+xml2
+xmlsec1
+xz-utils
+zlib1g-dev

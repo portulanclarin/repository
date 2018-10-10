@@ -1,0 +1,40 @@
+{% spaceless %}
+{% load get_resource_languages %}
+{% load get_resource_media_types %}
+{% load get_resource_type %}
+{% load resource_access_stats %}
+{% load static from staticfiles %}
+
+    <div class="resource-info panel-body row white_box">
+
+        <div class="entry-title">
+            <a href="{{ object.get_absolute_url }}">{{ object }}</a>
+        </div>
+
+        <div class="resource-description col-md-8 col-md-border">
+            <p>{{ object.identificationInfo.get_default_description|truncatechars:300|escape }}</p>
+        </div>
+        <div class="resource-tags col-md-4">
+            
+            <table>
+                <tr><th>Resource Type:</th><td>{% get_resource_type object.resourceComponentType.as_subclass.resourceType %}</td></tr>
+                {% get_resource_media_types object.resourceComponentType.as_subclass as resource_media_types %}
+                {% get_resource_languages object.resourceComponentType.as_subclass as resource_languages %}
+                {% if resource_media_types %}
+                    <tr><th rowspan="{{resource_media_types|length}}">Media Type{{ resource_media_types|length|pluralize }}:</th><td>{{resource_media_types.0}}</td></tr>
+                    {% for resource_media_type in resource_media_types|slice:"1:" %}
+                        <tr><td>{{resource_media_type}}</td></tr>
+                    {% endfor %}
+                {% endif %}
+                {% if resource_languages %}
+                    <tr><th rowspan="{{resource_languages|length}}">Language{{ resource_languages|length|pluralize }}:</th><td>{{resource_languages.0}}</td></tr>
+                    {% for resource_language in resource_languages|slice:"1:" %}
+                        <tr><td>{{resource_language}}</td></tr>
+                    {% endfor %}
+                {% endif %}
+            </table> 
+        </div>
+
+    </div>
+    
+{% endspaceless %}

@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Privacy Statement{% endblock %}
+{% block content %}
+<h1>Privacy Statement</h1>
+<table>
+    <tr>
+        <th>Name of the service</th>
+        <td>
+            <p>{{service_name}}</p><small>Technically identifiable as entity ‘<kbd>{{entity_id}}</kbd>’.</small></td>
+    </tr>
+    <tr>
+        <th>Description of the service</th>
+        <td>{{service_desc}}</td>
+    </tr>
+    <tr>
+        <th>Data controller and contact person</th>
+        <td>Administered by <a href="mailto:{{admin_email}}">{{admin_name}}</a> on behalf of
+            <a href="{{behalf_of_url}}">CLARIN PORTULAN</a>.
+        </td>
+    </tr>
+    <tr>
+        <th>Jurisdiction</th>
+        <td>{{jurisdiction}}</td>
+    </tr>
+    <tr>
+        <th>Personal data processed</th>
+        <td>
+            <p>Personal data is received in the form of attributes describing properties of you as
+            a person.
+            </p>
+            <p>The following attribute(s) is/are necessarily processed by this service: </p>
+            <ul>
+            <li><a href="http://software.internet2.edu/eduperson/internet2-mace-dir-eduperson-201310.html#eduPersonPrincipalName"><kbd>eduPersonPrincipalName</kbd></a>: an e-mail-address-like code that identifies your name and the administrative domain
+                you fall under at the institution.
+
+            </li>
+            <li><a href="http://software.internet2.edu/eduperson/internet2-mace-dir-eduperson-201310.html#eduPersonTargetedID"><kbd>eduPersonTargetedID</kbd></a>: your permanent privacy-preserving (opaque) identity code at the institution issued specifically for this service.
+
+            </li>
+            </ul>
+            <p>And additionally, not necessarily, and only if the institution releases them: </p>
+            <ul>
+            <li><a href="http://software.internet2.edu/eduperson/internet2-mace-dir-eduperson-201310.html#mail"><kbd>mail</kbd></a>: your e-mail address.
+
+            </li>
+            </ul>
+            <p>If your organisation does not provide some of these user attributes, you might be requested to provide them yourself in order to use certain services.</p>
+        </td>
+    </tr>
+    <tr>
+        <th>Purpose of the processing of personal data</th>
+        <td>
+        <p>Personal data is used to provide access to certain protected resources. User IDs are logged when accessing data and services and might be retrieved in cases of misuse. </p>
+            <ul>
+            <li><a href="http://software.internet2.edu/eduperson/internet2-mace-dir-eduperson-201310.html#eduPersonPrincipalName"><kbd>eduPersonPrincipalName</kbd></a>: to identify you.
+
+            </li>
+            <li><a href="http://software.internet2.edu/eduperson/internet2-mace-dir-eduperson-201310.html#eduPersonTargetedID"><kbd>eduPersonTargetedID</kbd></a>: to identify you.
+
+            </li>
+            <li><a href="http://software.internet2.edu/eduperson/internet2-mace-dir-eduperson-201310.html#mail"><kbd>mail</kbd></a>: to contact you.
+
+            </li>
+            </ul>
+        </td>
+    </tr>
+    <tr>
+        <th>Third parties to whom personal data is disclosed</th>
+        <td>When access to protected resources is requested, your personal data will be disclosed to the depositor(s) of the requested resources such that they can assess whether or not access should be granted. The depositor(s) could be in a country outside of the EU/EEA. </td>
+    </tr>
+    <tr>
+        <th>How to access, rectify and delete the personal data</th>
+        <td>Contact the contact person above. To rectify the data released by your Home Organisation, contact your Home Organisation's IT helpdesk. </td>
+    </tr>
+    <tr>
+        <th>Data retention</th>
+        <td>Personal data of regular users is deleted on request of the user or if the user hasn't used the service for five years. Personal data of users who have deposited resources into the language archive is only deleted on request of the user. </td>
+    </tr>
+    <tr>
+        <th>Data Protection Code of Conduct</th>
+        <td>Personal data will be protected according to the <a href="http://www.geant.net/uri/dataprotection-code-of-conduct/v1">GÉANT Data Protection Code of Conduct</a> for Service Providers, a common standard for the research and higher education sector
+            to protect the user's privacy.
+        </td>
+    </tr>
+</table>
+{% endblock content %}

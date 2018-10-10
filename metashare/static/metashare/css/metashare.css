@@ -1,0 +1,176 @@
+@font-face {
+    font-family: "Source Sans Pro";
+    src: url("../fonts/SourceSansPro-Regular.ttf");
+}
+
+body {
+    font-family: "Source Sans Pro", Calibri, Arial, Helvetica, sans-serif;
+}
+
+.navbar-right {
+    margin-right: 0;
+}
+
+#footer {
+    position: absolute;
+    bottom: 0;
+}
+
+div.panel-body {
+    min-width: 100%;
+}
+
+.second-nav {
+    max-width: 100%;
+}
+
+.search-bar {
+    margin-top: 2%;
+}
+
+.meta-logo {
+    border: 1px solid #ccc;
+    width: 850px;
+    padding: 10px;
+    background-color: #fff;
+}
+
+#q {
+    display: inline-block !important;
+    max-width: 75%;
+}
+
+#search-bar {
+    max-width: 60%;
+    margin: 0 auto;
+    padding: 0;
+    padding-bottom: 1em;
+}
+
+.navbar-nav li a {
+    line-height: 55px;
+    font-size: 120%;
+    font-weight: bold;
+}
+
+.navbar-right li a {
+    font-size: 100%;
+    font-weight: normal;
+}
+
+div.borderless {
+    border: 0;
+    box-shadow: none;
+}
+
+ul.pagination {
+    display:table;
+    margin: 0 auto;
+}
+
+ul.pagination a {
+    cursor: pointer;
+}
+
+div.searchbox, #headerNav ul {
+    width: 100%;
+}
+
+div.resource-info {
+    width: 100%;
+    background-color: #FFF;
+    padding: 4px;
+    margin: .9em 0 .3em;
+    color: #777;
+    border-radius: 5px 5px 5px 5px;
+    border: 1px solid #dde;
+    font-size: 12pt;
+    font-weight: normal;
+    display: inline-block;
+}
+
+div.resource-info>div.resource-description {
+    text-align: justify;
+    font-weight: normal;
+    text-justify: inter-word;
+    display: inline-block;
+    /*border-right: 1px solid #d7d7d7;*/
+    margin-bottom: 5px;
+}
+
+div.resource-info>div.accessStats {
+    float: right;
+}
+
+div.resource-info>div.accessStats>img {
+    vertical-align: middle;
+    margin: 0 .25em 0 .3em;
+}
+
+div.resource-info>div.entry-title {
+    padding-left: 15px;
+    font-size: 14pt;
+    padding-bottom: 5px;
+}
+
+div.filter {
+    text-indent: 10%;
+}
+
+div.collapsed {
+    background-color: rgb(239, 239, 239);
+    border-radius: 2px 2px 2px 2px;
+    margin-bottom: 2px;
+    padding: 3px;
+}
+
+div.expanded {
+    background-color: rgb(239, 239, 239);
+    border-radius: 2px 2px 2px 2px;
+    margin-bottom: 2px;
+    padding: 3px;
+}
+
+
+/* Icon codes come from bootstrap.min.css Glyphicon's site codes are different. */
+div.collapsed:before {
+    font-family: "Glyphicons Halflings";
+    content: "\002b  ";
+    color: #23527c;
+} 
+
+div.expanded:before {
+    font-family: "Glyphicons Halflings";
+    content: "\2212  ";
+    color: #23527c;
+}
+
+a.addableFacet:before {
+    font-family: "Glyphicons Halflings";
+    content: "\002b  ";
+}
+
+a.removableFacet:before {
+    font-family: "Glyphicons Halflings";
+    content: "\2212  ";
+}
+
+div.resource-tags {
+    padding: 0 0 0 .5em;
+}
+
+div.resource-tags table {
+    width: 100%;
+}
+
+div.resource-tags table th {
+    width: 7em;
+    text-align: right;
+    padding-right: .5em;
+    vertical-align: top;
+    font-weight: normal;
+    color: #999;
+}
+div.resource-tags table td {
+    color:#666;
+}
