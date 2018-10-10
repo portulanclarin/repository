@@ -109,19 +109,19 @@ SAML_ATTRIBUTE_MAPPING = {
 SAML_CREATE_UNKNOWN_USER = True
 
 
-# this was the original META-SHARE login form:
-#LOGIN_URL = '/{0}login/'.format(DJANGO_BASE)
+# this is the original META-SHARE login form:
+LOGIN_URL = '/{0}login/'.format(DJANGO_BASE)
 
-# we replace it with SAML2 login form:
-LOGIN_URL = '/{0}saml2/login/'.format(DJANGO_BASE)
+# replace it with SAML2 login form if you need federated login:
+# LOGIN_URL = '/{0}saml2/login/'.format(DJANGO_BASE)
 
 LOGIN_REDIRECT_URL = '/{0}'.format(DJANGO_BASE)
 
-# this was the original META-SHARE logout URL:
-#LOGOUT_URL = '/{0}logout/'.format(DJANGO_BASE)
+# this is the original META-SHARE logout URL:
+LOGOUT_URL = '/{0}logout/'.format(DJANGO_BASE)
 
-# we replace it with SAML2 logout URL:
-LOGOUT_URL = '/{0}saml2/logout/'.format(DJANGO_BASE)
+# replace it with SAML2 logout URL if you need federeated login:
+# LOGOUT_URL = '/{0}saml2/logout/'.format(DJANGO_BASE)
 
 MANAGERS = ADMINS
 
