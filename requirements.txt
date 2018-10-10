@@ -19,7 +19,11 @@ psycopg2==2.6.1
 pycountry==1.12
 pygeoip==0.3.2
 pyoai==2.4.4
-pysaml2==0.4.3
+# Currently we do not require user authentication for downloading resources
+#  If you want to implement federated login, you need pysaml2, but beware that
+#  versions older than 4.5 have known vulnerabilities.
+#  We did not check if updating to pysaml 4.5 would work with the current code.
+# pysaml2==0.4.3
 pysolr==2.1.0-beta
 python-dateutil==2.4.2
 requests==2.7.0
