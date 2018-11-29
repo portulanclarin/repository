@@ -4,7 +4,7 @@ import re
 from django import forms
 from django.utils.encoding import force_unicode
 from django.utils.safestring import mark_safe
-from django.utils.translation import ugettext as _
+from django.utils.translation import ugettext_lazy as _
 
 
 from metashare.settings import LOG_HANDLER
@@ -214,21 +214,32 @@ class LicenseAgreementForm(forms.Form):
         self.fields['licence'] = forms.CharField(initial=licence,
                                                  widget=forms.HiddenInput())
 
-
 class DownloadContactForm(forms.Form):
     """
     A `Form` for sending a contact request regarding the download of a resource
     """
-    userEmail = forms.EmailField(label=_("Your e-mail"))
+    user_name = forms.CharField(label=_("Your name"), required=True)
+    user_email = forms.EmailField(label=_("Your e-mail"), required=True)
+    affiliation = forms.CharField(label=_("Your affiliation"), required=True)
+    PURPOSE_INNOVATION = ("1", _("Innovation"))
+    PURPOSE_EDUCATION = ("2", _("Education"))
+    PURPOSE_COMMERCIAL = ("3", _("Comercial"))
+    PURPOSE_OTHER = ("4", _("Other"))
+    PURPOSE_CHOICES = (
+        PURPOSE_INNOVATION,
+        PURPOSE_EDUCATION,
+        PURPOSE_COMMERCIAL,
+        PURPOSE_OTHER,
+    )
+    PURPOSE_BY_KEY = {key: value for key, value in PURPOSE_CHOICES}
+    purpose = forms.ChoiceField(choices = PURPOSE_CHOICES, label=_("Purpose"), initial='1')
+    other_purpose = forms.CharField(label = _("Please specify the purpose"), required=False)
     message = forms.CharField(label=_("Your message"), widget=forms.Textarea())
 
-
-class DownloadContactFormNotLoggedIn(forms.Form):
-    """
-    A `Form` for sending a contact request when a user is not logged in
-    regarding the download of a resource
-    """
-    userName = forms.CharField(label=_("Your name"))
-    userEmail = forms.EmailField(label=_("Your e-mail"))
-    message = forms.CharField(label=_("Your message"), widget=forms.Textarea())
-    
+    def clean(self):
+        cleaned_data = super(DownloadContactForm, self).clean()
+        if self.cleaned_data['purpose'] == "4":
+            other_purpose = self.cleaned_data.get("other_purpose", "").strip()
+            if not other_purpose:
+                self.errors['other_purpose'] = ["You must describe the purpose"]
+        return cleaned_data

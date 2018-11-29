@@ -35,6 +35,8 @@ try:
 
 except ImproperlyConfigured:
     pass
+except ImportError:
+    pass
 
 REQUIRED = 1
 OPTIONAL = 2

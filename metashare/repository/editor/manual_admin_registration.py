@@ -73,7 +73,7 @@ class CorpusAudioModelAdmin(SchemaModelAdmin):
 class PersonModelAdmin(AdminRelatedInfo, SchemaModelAdmin):
     exclude = ('source_url', 'copy_status')
     list_display = ('instance_data', 'num_related_resources', 'related_resources')
-    
+
     def instance_data(self, obj):
         return obj.__unicode__()
     instance_data.short_description = _('Person')
@@ -81,7 +81,7 @@ class PersonModelAdmin(AdminRelatedInfo, SchemaModelAdmin):
 class OrganizationModelAdmin(AdminRelatedInfo, SchemaModelAdmin):
     exclude = ('source_url', 'copy_status')
     list_display = ('instance_data', 'num_related_resources', 'related_resources')
-    
+
     def instance_data(self, obj):
         return obj.__unicode__()
     instance_data.short_description = _('Organization')
@@ -89,7 +89,7 @@ class OrganizationModelAdmin(AdminRelatedInfo, SchemaModelAdmin):
 class ProjectModelAdmin(AdminRelatedInfo, SchemaModelAdmin):
     exclude = ('source_url', 'copy_status')
     list_display = ('instance_data', 'num_related_resources', 'related_resources')
-    
+
     def instance_data(self, obj):
         return obj.__unicode__()
     instance_data.short_description = _('Project')
@@ -97,7 +97,7 @@ class ProjectModelAdmin(AdminRelatedInfo, SchemaModelAdmin):
 class DocumentModelAdmin(AdminRelatedInfo, SchemaModelAdmin):
     exclude = ('source_url', 'copy_status')
     list_display = ('instance_data', 'num_related_resources', 'related_resources')
-    
+
     def instance_data(self, obj):
         return obj.__unicode__()
     instance_data.short_description = _('Document')
@@ -200,7 +200,8 @@ class DocumentUnstructuredStringModelAdmin(admin.ModelAdmin, RelatedAdminMixin):
             'media': mark_safe(media),
             'inline_admin_formsets': inline_admin_formsets,
             'errors': helpers.AdminErrorList(form, formsets),
-            'root_path': self.admin_site.root_path,
+            # 'root_path': self.admin_site.root_path,
+            'root_path': '/{}admin/'.format(settings.DJANGO_BASE),
             'app_label': opts.app_label,
             'kb_link': settings.KNOWLEDGE_BASE_URL,
             'comp_name': _('%s') % force_unicode(opts.verbose_name),
@@ -243,11 +244,11 @@ custom_admin_classes = {
     lexicalConceptualResourceImageInfoType_model: GenericTabbedAdmin,
     toolServiceInfoType_model: GenericTabbedAdmin,
     licenceInfoType_model: LicenceModelAdmin,
-    personInfoType_model: PersonModelAdmin, 
-    organizationInfoType_model: OrganizationModelAdmin, 
-    projectInfoType_model: ProjectModelAdmin, 
+    personInfoType_model: PersonModelAdmin,
+    organizationInfoType_model: OrganizationModelAdmin,
+    projectInfoType_model: ProjectModelAdmin,
     documentInfoType_model: DocumentModelAdmin,
-    documentUnstructuredString_model: DocumentUnstructuredStringModelAdmin, 
+    documentUnstructuredString_model: DocumentUnstructuredStringModelAdmin,
 }
 
 def register():
@@ -257,15 +258,15 @@ def register():
     '''
     for model in purely_inline_models:
         admin.site.unregister(model)
-    
-    
+
+
     for modelclass, adminclass in custom_admin_classes.items():
         admin.site.unregister(modelclass)
         admin.site.register(modelclass, adminclass)
-        
+
     # And finally, make sure that our editor has the exact same model/admin pairs registered:
     for modelclass, adminobject in admin.site._registry.items():
         editor_site.register(modelclass, adminobject.__class__)
 
-    
+
 

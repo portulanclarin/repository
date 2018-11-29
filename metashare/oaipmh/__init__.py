@@ -1,13 +1,12 @@
 ﻿# coding=utf-8
 # pylint:
 from collections import OrderedDict
+from django.core.urlresolvers import reverse
 from oaipmh.server import Server
 from oaipmh.metadata import MetadataRegistry
 
 from metashare.oaipmh.oaipmh_server import OaiPmhServer
-from metashare.settings import DJANGO_URL, ADMINS, COLLECTION_DISPLAY_NAME, OAIPMH_URL
-from metashare.oaipmh.metadata_handlers import MetashareWriter, OlacWriter, \
-    CmdiWriter
+from metashare.oaipmh.metadata_handlers import MetashareWriter, OlacWriter, CmdiWriter
 from metashare.oaipmh._utils import *
 from metashare.oaipmh.oaipmh_verbs import (
     harvest_from_GUI, ListIdentifiers, ListRecords, Identify, ListSets, ListMetadataFormats
@@ -20,13 +19,13 @@ def metadata_registry():
     registry.registerWriter('cmdi', CmdiWriter())
     return registry
 
-# META-SHARE OAI-PMH server instantiation
-__env_dict = {
-    "repositoryName": COLLECTION_DISPLAY_NAME,
-    "baseURL": OAIPMH_URL,
-    "adminEmails": [admin[1] for admin in ADMINS],
-}
-oaipmh_server = Server(server=OaiPmhServer(__env_dict), metadata_registry=metadata_registry(), resumption_batch_size=1000)
+oaipmh_proto_server = OaiPmhServer()
+
+oaipmh_server = Server(
+    server=oaipmh_proto_server,
+    metadata_registry=metadata_registry(),
+    resumption_batch_size=1000,
+)
 
 #==========================
 # Supported commands

@@ -7,14 +7,14 @@ if test -f env-overrides.sh; then
 fi
 
 function assert_file_exists {
-    local missing=false
+    local MISSING=false
     for f in $@; do
         if ! test -f $f; then
             echo "File '$f' does not exist." >&2
-            missing=true
+            MISSING=true
         fi
     done
-    if $missing; then
+    if $MISSING; then
         echo "Critical file(s) missing. Aborting." >&2
         exit 1
     fi
@@ -28,13 +28,26 @@ function assert_not_root {
 }
 
 function init_deps_dirs {
-    for d in deps/static/{css,js,fonts}; do
-        mkdir -vp $d
+    for D in $DEPS_DIR/static/{css,js,fonts}; do
+        mkdir -vp $D
     done
 }
 
-function install_pyenv {
+function check_pyenv {
     if which pyenv > /dev/null; then
+        return
+    fi
+    if test -d $HOME/.pyenv; then
+        export PATH="$HOME/.pyenv:$PATH"
+    fi
+    if which pyenv > /dev/null; then
+        eval "$(pyenv init -)"
+        eval "$(pyenv virtualenv-init -)"
+        true
+    fi
+}
+function install_pyenv {
+    if check_pyenv; then
         # pyenv already installed
         return
     fi
@@ -44,16 +57,16 @@ function install_pyenv {
     eval "$(pyenv init -)"
     eval "$(pyenv virtualenv-init -)"
 
-    init_pyenv='
+    local INIT_PYENV='
 export PATH="$HOME/.pyenv/bin:$PATH"
 eval "$(pyenv init -)"
 eval "$(pyenv virtualenv-init -)"
 '
-    for rcfile in $HOME/.{profile,bashrc,bash_profile}; do
-        if test -f $rcfile; then
-            if ! grep -q 'pyenv init -' $rcfile; then
-                echo "Adding pyenv init to $rcfile" >&2
-                echo "$init_pyenv" | cat - $rcfile | sponge $rcfile
+    for RCFILE in $HOME/.{profile,bashrc,bash_profile}; do
+        if test -f $RCFILE; then
+            if ! grep -q 'pyenv init -' $RCFILE; then
+                echo "Adding pyenv init to $RCFILE" >&2
+                echo "$INIT_PYENV" | cat - $RCFILE | sponge $RCFILE
             fi
         fi
     done
@@ -61,84 +74,94 @@ eval "$(pyenv virtualenv-init -)"
 
 function install_python {
     install_pyenv
-    if pyenv local | grep $python_version > /dev/null \
-            && python --version 2>&1 | grep $python_version > /dev/null; then
+    if pyenv versions | grep $PYTHON_VERSION > /dev/null; then
         return
     fi
-    echo "Installing Python $python_version" >&2
+    echo "Installing Python $PYTHON_VERSION" >&2
     export PYTHON_CONFIGURE_OPTS="--enable-shared"
-    pyenv install $python_version
+    pyenv install $PYTHON_VERSION
 }
 
 function install_python_packages {
     install_python
-    pyenv local $python_version/$virtualenv
+    pyenv virtualenv $PYTHON_VERSION $VIRTUALENV_NAME
+    pyenv local $VIRTUALENV_NAME
     pip install -U pip
-    pip install -U -r requirements.txt
+    # increase timeout to 1 minute (60 seconds)
+    # default is 15 seconds
+    pip install -U --timeout 60 -r $1
 }
 
 function install_system_packages {
-    apt_packages=$(grep -vP '^\s*#' apt-packages.txt)
-    if ! apt -qq list $apt_packages 2>/dev/null | \
+    local APT_PACKAGES=$(grep -vP '^\s*#' apt-packages.txt)
+    if ! apt -qq list $APT_PACKAGES 2>/dev/null | \
         grep -v '\[installed\]' > /dev/null 2>&1; then
         echo "All required system packages are installed" >&2
         return
     fi
     echo "Some system packages need to be installed." >&2
-    echo "Run the following command as root:" >&2
-    echo apt-get install $apt_packages
+    echo "Run the following commands as root:" >&2
+    echo dpkg --add-architecture i386
+    echo apt-get update
+    echo apt-get install $APT_PACKAGES
     exit 1
 }
 
 function install_bootstrap {
     echo "Installing bootstrap" >&2
-    if ! test -f deps/bootstrap-$bs_version-dist/css/bootstrap.css; then
-        wget -P deps $bs_base_url/bootstrap-$bs_version-dist.zip
-        unzip -d deps -u deps/bootstrap-$bs_version-dist.zip
-        rm -f deps/bootstrap-$bs_version-dist.zip
+    if ! test -f $DEPS_DIR/bootstrap-$BS_VERSION-dist/css/bootstrap.css; then
+        wget -P $DEPS_DIR $BS_BASE_URL/bootstrap-$BS_VERSION-dist.zip
+        unzip -d $DEPS_DIR -u $DEPS_DIR/bootstrap-$BS_VERSION-dist.zip
+        rm -f $DEPS_DIR/bootstrap-$BS_VERSION-dist.zip
     fi
-    for d in css js fonts; do
-        ln -f deps/bootstrap-$bs_version-dist/$d/* deps/static/$d/
+    for D in css js fonts; do
+        ln -f $DEPS_DIR/bootstrap-$BS_VERSION-dist/$D/* $DEPS_DIR/static/$D/
     done
 }
 
 function install_jquery {
     echo "Installing jquery" >&2
-    if ! test -f deps/jquery-$jq_version/jquery-$jq_version.min.js; then
-        mkdir -p deps/jquery-$jq_version
-        wget -P deps/jquery-$jq_version -c \
-            $jq_base_url/jquery-$jq_version.{js,min.js,min.map}
+    if ! test -f $DEPS_DIR/jquery-$JQ_VERSION/jquery-$JQ_VERSION.min.js; then
+        mkdir -p $DEPS_DIR/jquery-$JQ_VERSION
+        wget -P $DEPS_DIR/jquery-$JQ_VERSION -c \
+            $JQ_BASE_URL/jquery-$JQ_VERSION.{js,min.js,min.map}
     fi
-    for ext in  js min.js min.map; do
-        ln -f deps/jquery-$jq_version/jquery-$jq_version.$ext deps/static/js/jquery.$ext
+    for EXT in  js min.js min.map; do
+        ln -f $DEPS_DIR/jquery-$JQ_VERSION/jquery-$JQ_VERSION.$EXT $DEPS_DIR/static/js/jquery.$EXT
     done
 }
 
+function collect_static {
+    echo "Running manage.py collectstatic..."
+    manage collectstatic --link --noinput
+    echo "Finished manage.py collectstatic"
+}
+
 function kill_process {
-    pidfile=$1
-    if ! test -f $pidfile; then
-        echo "PID file $pidfile does not exist" >&2
+    local PIDFILE=$1
+    if ! test -f $PIDFILE; then
+        echo "PID file $PIDFILE does not exist" >&2
         return
     fi
-    pid=$(cat $pidfile)
-    if ! test -d /proc/$pid; then
-        echo "No process with PID=$pid" >&2
-        rm -f $pidfile
+    local PID=$(cat $PIDFILE)
+    if ! test -d /proc/$PID; then
+        echo "No process with PID=$PID" >&2
+        rm -f $PIDFILE
         return
     fi
-    echo "Sending TERM signal to process with PID=$pid" >&2
-    kill -s TERM $pid
+    echo "Sending TERM signal to process with PID=$PID" >&2
+    kill -s TERM $PID
     for t in {0..3}; do
-        if ! test -d /proc/$pid; then
+        if ! test -d /proc/$PID; then
             break
         fi
         sleep 1
     done
-    if test -d /proc/$pid; then
-        echo "Sending KILL signal to process with PID=$pid" >&2
-        kill -s KILL $pid
+    if test -d /proc/$PID; then
+        echo "Sending KILL signal to process with PID=$PID" >&2
+        kill -s KILL $PID
     fi
-    rm -f $pidfile
+    rm -f $PIDFILE
 }
 
 function init_run_dirs {
@@ -147,21 +170,23 @@ function init_run_dirs {
 
 function start_standalone {
     init_run_dirs
+    check_pyenv
     assert_file_exists manage.py metashare/settings.py
-    exec python manage.py runserver $repository_port
+    exec python manage.py runserver $REPOSITORY_PORT
 }
 
 function manage {
+    check_pyenv
     assert_file_exists manage.py metashare/settings.py
     exec python manage.py "$@"
 }
 
 function start_gunicorn {
-    echo "Starting gunicorn"
     init_run_dirs
+    check_pyenv
     assert_file_exists manage.py metashare/settings.py
     gunicorn \
-        --bind 127.0.0.1:$repository_port \
+        --bind 127.0.0.1:$REPOSITORY_PORT \
         --pid $PIDS_DIR/gunicorn.pid \
         --access-logfile $LOGS_DIR/access.log \
         --error-logfile $LOGS_DIR/error.log \
@@ -169,18 +194,14 @@ function start_gunicorn {
         --name repository-gunicorn \
         --daemon \
         metashare.wsgi:application
-    echo "Gunicorn started"
 }
 
 function stop_gunicorn {
-    echo "Stopping gunicorn"
     kill_process $PIDS_DIR/gunicorn.pid
-    echo "Stopped gunicorn"
 }
 
 function start_solr {
-    if test -f $PIDS_DIR/solr.txt \
-        && test -d /proc/$(cat $PIDS_DIR/solr.txt); then
+    if solr_is_running; then
         echo "SOLR appears to be running" >&2
         return
     fi
@@ -196,22 +217,42 @@ function start_solr {
 
     pushd "$CODE_DIR/solr" > /dev/null
     echo "Trying to start SOLR server" >&2
-    java -Djetty.port=$solr_port \
-        -DSTOP.PORT=$solr_stop_port \
-        -DSTOP.KEY="$solr_stop_key" \
+    java -Djetty.port=$SOLR_PORT \
+        -DSTOP.PORT=$SOLR_STOP_PORT \
+        -DSTOP.KEY="$SOLR_STOP_KEY" \
         -jar "$CODE_DIR/solr/start.jar" \
         > "$LOGS_DIR/solr.txt" 2>&1 &
     echo $! > "$PIDS_DIR/solr.txt"
-    sleep 4
     popd > /dev/null
+
+    # wait until solr starts responding to pings:
+    for i in {1..20}; do
+        sleep 2
+        if ping_solr; then
+            break
+        fi
+    done
+}
+
+function ping_solr {
+    curl -s http://localhost:$SOLR_PORT/solr/main/admin/ping?indent=1 |
+    grep -q '<str name="status">OK</str>'
+}
+
+function solr_is_running {
+    test -f $PIDS_DIR/solr.txt \
+        && test -d /proc/$PID \
+        && ping_solr
 }
 
 function stop_solr {
-    if [ -f $PIDS_DIR/solr.txt ]; then
+    if solr_is_running; then
         pushd "$CODE_DIR/solr" > /dev/null
         echo "Trying to stop SOLR server" >&2
-        java -DSTOP.PORT=$solr_stop_port -DSTOP.KEY="$solr_stop_key" \
-            -jar "$CODE_DIR/solr/start.jar" --stop
+        java -DSTOP.PORT=$SOLR_STOP_PORT \
+            -DSTOP.KEY="$SOLR_STOP_KEY" \
+            -jar "$CODE_DIR/solr/start.jar" \
+            --stop
         popd > /dev/null
     else
         echo "SOLR is not running" >&2
@@ -219,13 +260,10 @@ function stop_solr {
 }
 
 function kill_solr {
-    pid="x"
-    if test -f cat $PIDS_DIR/solr.txt; then
-        pid=$(cat $PIDS_DIR/solr.txt)
-    fi
-    if test -d /proc/$pid; then
-        echo "Killing SOLR (PID=$pid)" >&2
-        kill -s SIGKILL $pid
+    if solr_is_running; then
+        local PID=$(cat $PIDS_DIR/solr.txt)
+        echo "Killing SOLR (PID=$PID)" >&2
+        kill -s SIGKILL $PID
     else
         echo "SOLR is not running" >&2
     fi
@@ -233,9 +271,8 @@ function kill_solr {
 }
 
 function schedule_django_tasks {
-    echo "Scheduling Django tasks" >&2
+    check_pyenv
     python manage.py installtasks >&2
-    echo "Scheduled Django tasks" >&2
 }
 
 function deploy {
@@ -252,11 +289,13 @@ function deploy {
 
     git checkout -B production $NEW_COMMIT
 
+    echo "Installing dependencies"
+
+    ./scripts/install-deps.sh
+
     if git diff --name-only $CURRENT_COMMIT $NEW_COMMIT | grep -q /static/ ; then
         echo "Static resources have changed"
-        echo "Running manage.py collectstatic..."
-        ./scripts/manage.sh collectstatic
-        echo "Finished manage.py collectstatic"
+        collect_static
     else
         echo "Static resources not changed"
     fi

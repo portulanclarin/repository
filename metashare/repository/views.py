@@ -1,15 +1,22 @@
 import logging
 
+import os
+import hashlib
+import json
+import random
 from datetime import datetime
 from os.path import split, getsize
 from urllib import urlopen
 from mimetypes import guess_type
+
+from lxml import etree
 
 from django.contrib.auth.decorators import login_required
 from django.core.urlresolvers import reverse
 from django.http import HttpResponse
 from django.shortcuts import render_to_response, get_object_or_404, redirect
 from django.template import RequestContext
+from django.db import IntegrityError
 from django.contrib import messages
 from django.template.loader import render_to_string
 from django.core.mail import send_mail
@@ -19,11 +26,11 @@ from haystack.views import FacetedSearchView
 
 from metashare.repository.editor.resource_editor import has_edit_permission
 from metashare.repository.forms import LicenseSelectionForm, \
-    LicenseAgreementForm, DownloadContactForm, DownloadContactFormNotLoggedIn, \
+    LicenseAgreementForm, DownloadContactForm, \
     MORE_FROM_SAME_CREATORS, MORE_FROM_SAME_PROJECTS
 from metashare.repository import model_utils
 from metashare.repository.models import licenceInfoType_model, \
-    resourceInfoType_model
+    resourceInfoType_model, PendingEmail
 from metashare.repository.search_indexes import resourceInfoType_modelIndex, \
     update_lr_index_entry
 from metashare.settings import LOG_HANDLER, STATIC_URL, DJANGO_URL
@@ -34,6 +41,8 @@ from metashare.recommendations.recommendations import SessionResourcesTracker, \
     get_download_recommendations, get_view_recommendations, \
     get_more_from_same_creators_qs, get_more_from_same_projects_qs
 
+import metashare.oaipmh.metadata_handlers
+from metashare.oaipmh.oaipmh_server import _add_elements_to_cmdi_metadata
 
 MAXIMUM_READ_BLOCK_SIZE = 4096
 
@@ -327,128 +336,181 @@ def _update_download_stats(resource, request):
     request.session['tracker'] = tracker
 
 
+
+DEFAULT_MESSAGE = "We are interested in using the above mentioned " \
+    "resource. Please provide us with all the relevant information (e.g.," \
+    " licensing provisions and restrictions, any fees required etc.) " \
+    "which is necessary for concluding a deal for getting a license. We " \
+    "are happy to provide any more information on our request and our " \
+    "envisaged usage of your resource.\n\n" \
+    "[Please include here any other request you may have regarding this " \
+    "resource or change this message altogether]\n\n" \
+    "Please kindly use the above mentioned e-mail address for any " \
+    "further communication."
+
+SUBJECT = 'Request for information regarding a resource'
+
+
+def get_resource_contact_names(resource):
+    return [
+        u'%s %s' % (
+            person.get_default_givenName(), person.get_default_surname()
+        ) if person.givenName else person.get_default_surname()
+        for person in resource.contactPerson.all()
+    ]
+
+
+def get_resource_contact_emails(resource):
+    return [
+        person.communicationInfo.email[0]
+        for person in resource.contactPerson.all()
+    ]
+
+
 def download_contact(request, object_id):
     """
     Renders the download contact view to request information regarding a resource
     """
-    resource = get_object_or_404(resourceInfoType_model,
-                                 storage_object__identifier=object_id,
-                                 storage_object__publication_status=PUBLISHED)
-
-    default_message = "We are interested in using the above mentioned " \
-        "resource. Please provide us with all the relevant information (e.g.," \
-        " licensing provisions and restrictions, any fees required etc.) " \
-        "which is necessary for concluding a deal for getting a license. We " \
-        "are happy to provide any more information on our request and our " \
-        "envisaged usage of your resource.\n\n" \
-        "[Please include here any other request you may have regarding this " \
-        "resource or change this message altogether]\n\n" \
-        "Please kindly use the above mentioned e-mail address for any " \
-        "further communication."
-
-    # Find out the relevant resource contact emails and names
-    resource_emails = []
-    resource_contacts = []
-    for person in resource.contactPerson.all():
-        resource_emails.append(person.communicationInfo.email[0])
-        if person.givenName:
-            _name = u'{} '.format(person.get_default_givenName())
-        else:
-            _name = u''
-        resource_contacts.append(_name + person.get_default_surname())
-
-    # Check if user is authenticated
+    form_cls = DownloadContactForm
     if request.user.is_authenticated():
-        # Check if the edit form has been submitted.
-        if request.method == "POST":
-            # If so, bind the creation form to HTTP POST values.
-            form = DownloadContactForm(initial={'userEmail': request.user.email,
-                                                'message': default_message},
-                                    data=request.POST)
-            # Check if the form has validated successfully.
-            if form.is_valid():
-                message = form.cleaned_data['message']
-                user_email = form.cleaned_data['userEmail']
+        user_name_surname = request.user.first_name + " " + request.user.last_name
+        initial_data = {
+            'message': DEFAULT_MESSAGE,
+            'user_email': request.user.email,
+            'user_name': user_name_surname,
+        }
+    else:
+        initial_data = {
+            'message': DEFAULT_MESSAGE,
+        }
 
-                # Render notification email template with correct values.
-                data = {'message': message, 'resource': resource,
-                    'resourceContactName': resource_contacts, 'user': request.user,
-                    'user_email': user_email, 'node_url': DJANGO_URL}
+    resource = get_object_or_404(resourceInfoType_model,
+                                storage_object__identifier=object_id,
+                                storage_object__publication_status=PUBLISHED)
+
+    # Check if the edit form has been submitted.
+    if request.method == "POST":
+        # If so, bind the creation form to HTTP POST values.
+        form = form_cls(initial=initial_data, data=request.POST)
+        # Check if the form has validated successfully.
+        if form.is_valid():
+            message = form.cleaned_data['message']
+            user_email = form.cleaned_data['user_email']
+            user_name = form.cleaned_data['user_name']
+            affiliation = form.cleaned_data['affiliation']
+            purpose = DownloadContactForm.PURPOSE_BY_KEY.get(
+                form.cleaned_data['purpose']
+            )
+            if form.cleaned_data['purpose'] == DownloadContactForm.PURPOSE_OTHER[0]:
+                purpose = "Other purpose: " + form.cleaned_data['other_purpose']
+
+            # Render notification email template with correct values.
+            data = {
+                'message': message,
+                'resource': resource,
+                'resource_contact_name': get_resource_contact_names(resource),
+                'user_name': user_name,
+                'user_email': user_email,
+                'affiliation': affiliation,
+                'purpose': purpose,
+                'node_url': DJANGO_URL,
+            }
+            body = render_to_string(
+                        os.path.join('repository', 'resource_download_information.email'),
+                        data,
+                    )
+            if request.user.is_authenticated():
+                data['user'] = request.user
                 try:
                     # Send out email to the resource contacts
-                    send_mail('Request for information regarding a resource',
-                        render_to_string('repository/' \
-                        'resource_download_information.email', data),
-                        user_email, resource_emails, fail_silently=False)
+                    send_mail(
+                        SUBJECT,
+                        body,
+                        user_email,
+                        get_resource_contact_emails(resource),
+                        fail_silently=False,
+                    )
+
                 except: #SMTPException:
                     # If the email could not be sent successfully, tell the user
                     # about it.
                     messages.error(request,
-                    _("There was an error sending out the request email."))
+                        _("There was an error sending out the request email.")
+                    )
                 else:
-                    messages.success(request, _('You have successfully ' \
-                        'sent a message to the resource contact person.'))
-
+                    messages.success(request,
+                        _('You have successfully sent a message to the resource contact person.')
+                    )
                 # Redirect the user to the resource page.
                 return redirect(resource.get_absolute_url())
-
-        # Otherwise, render a new DownloadContactForm instance
-        else:
-            form = DownloadContactForm(initial={'userEmail': request.user.email,
-                                                'message': default_message})
-
-        dictionary = { 'username': request.user,
-        'resource': resource,
-        'resourceContactName': resource_contacts,
-        'form': form }
-        return render_to_response('repository/download_contact_form.html',
-                            dictionary, context_instance=RequestContext(request))
+            else:
+                save_pending_email(message, user_email, user_name, body, resource)
+                messages.success(request,
+                    _('Please check your email and confirm.')
+                )
 
     else:
-        # Check if the edit form has been submitted.
-        if request.method == "POST":
-            # If so, bind the creation form to HTTP POST values.
-            form = DownloadContactFormNotLoggedIn(initial={'message': default_message},
-                                    data=request.POST)
-            # Check if the form has validated successfully.
-            if form.is_valid():
-                message = form.cleaned_data['message']
-                user_email = form.cleaned_data['userEmail']
+        form = form_cls(initial=initial_data)
 
-                # Render notification email template with correct values.
-                data = {'message': message, 'resource': resource,
-                    'resourceContactName': resource_contacts,
-                    'user_email': user_email, 'node_url': DJANGO_URL}
-                try:
-                    # Send out email to the resource contacts
-                    send_mail('Request for information regarding a resource',
-                        render_to_string('repository/' \
-                        'resource_download_information.email', data),
-                        user_email, resource_emails, fail_silently=False)
-                except: #SMTPException:
-                    # If the email could not be sent successfully, tell the user
-                    # about it.
-                    messages.error(request,
-                    _("There was an error sending out the request email."))
-                else:
-                    messages.success(request, _('You have successfully ' \
-                        'sent a message to the resource contact person.'))
-
-                # Redirect the user to the resource page.
-                return redirect(resource.get_absolute_url())
-
-        # Otherwise, render a new DownloadContactForm instance
-        else:
-            form = DownloadContactFormNotLoggedIn(initial={'message': default_message})
-
-        dictionary = {
+    context = {
+        'username': request.user,
         'resource': resource,
-        'resourceContactName': resource_contacts,
-        'form': form }
-        return render_to_response('repository/download_contact_form.html',
-                            dictionary, context_instance=RequestContext(request))
+        'resource_contact_name': get_resource_contact_names(resource),
+        'form': form,
+    }
+    return render_to_response(
+        'repository/download_contact_form.html',
+        context,
+        context_instance=RequestContext(request),
+    )
 
+def confirm_email(request, key):
+    pending_email = get_object_or_404(PendingEmail, key=key)
+    send_mail(
+        'Request for information regarding a resource',
+        pending_email.body,
+        pending_email.user_email,
+        json.loads(pending_email.addresses),
+        fail_silently=False,
+    )
+    pending_email.delete()
+    return render_to_response(
+        'repository/download_contact_form_confirmed.html',
+        context_instance=RequestContext(request),
+    )
 
+def save_pending_email(message, user_email, user_name, body, resource):
+    addresses = json.dumps(get_resource_contact_emails(resource))
+    key_base = message + user_email + user_name + "%d"
+    i = random.randint(0, 1000)
+    while True:
+        key = hashlib.sha224((key_base % i).encode('utf-8')).hexdigest()[:32]
+        i + 1
+        try:
+            pending_email = PendingEmail(key=key, user_email=user_email,\
+             subject=SUBJECT, body=body, addresses=addresses)
+            pending_email.save()
+            data = {
+                'user_name': user_name,
+                'key': key,
+                'resource': resource,
+                'node_url': DJANGO_URL,
+            }
+            confirmation_body = render_to_string(
+                        os.path.join('repository', 'resource_contact_confirmation.email'),
+                        data,
+                    )
+            send_mail(
+                    'Email confirmation',
+                    confirmation_body,
+                    'noreply@clarinportulan.net',
+                    [user_email],
+                    fail_silently=False,
+                    )
+        except IntegrityError:
+            raise ValidationError("Key already exists")
+        else:
+            break
 
 def view(request, resource_name=None, object_id=None):
     """
@@ -461,6 +523,27 @@ def view(request, resource_name=None, object_id=None):
     if request.path_info != resource.get_absolute_url():
         return redirect(resource.get_absolute_url())
 
+    if request.META["HTTP_ACCEPT"] == "application/x-cmdi+xml":
+        return _view_as_cmdi(request, resource)
+    else:
+        return _view_as_html(request, resource)
+
+def _view_as_cmdi(request, resource):
+    so = resource.storage_object
+    identifiers = resource.identificationInfo.identifier
+    doi = identifiers[0] if identifiers else ""
+    map_ = _add_elements_to_cmdi_metadata(
+        metashare.oaipmh.metadata_handlers.CmdiMap().getMap(so.metadata),
+        resource.pk,
+        so.identifier,
+        'https://doi.org/' + doi,
+    )
+    return HttpResponse(
+        etree.tostring(map_["CMD"], encoding="unicode"),
+        content_type= "application/x-cmdi+xml",
+    )
+
+def _view_as_html(request, resource):
     # Convert resource to ElementTree and then to template tuples.
     lr_content = _convert_to_template_tuples(
         resource.export_to_elementtree(pretty=True))
@@ -1004,4 +1087,3 @@ class MetashareFacetedSearchView(FacetedSearchView):
                                'addable': addable})
 
         return results
-

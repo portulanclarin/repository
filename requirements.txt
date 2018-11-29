@@ -3,27 +3,30 @@
 # extended permission name from 50 to 250 chars (django.contrib.auth.models.Permission.name)
 Django==1.4.19
 django-analytical==0.22.0
-git+git://github.com/metashare/django-haystack.git@ea5dbd570f847ceb39ff741d9a27c77df09c9e3d
-#django-haystack==2.0.0
+
+#git+git://github.com/metashare/django-haystack.git@ea5dbd570f847ceb39ff741d9a27c77df09c9e3d
+# NOTE: the package below (available in our pypi) was created from the commit above
+django-haystack==2.0.0b1
+
 # git+git://github.com/metashare/django-jenkins.git@e84f76ee7c940f35f761ced65ed7c97aa00b4acb
 django-jenkins==0.13.0
+
 # git+git://github.com/metashare/django-kronos.git@f22f638120920b722edd7619d6a037289edc678e
 django-kronos==0.3
-git+git://github.com/metashare/django-selectable.git@d8381086e8307257259a6cedf01d7fb2cbd34452
-# django-selectable==0.5.2
+
+#git+git://github.com/metashare/django-selectable.git@d8381086e8307257259a6cedf01d7fb2cbd34452
+# NOTE: the package below (available in our pypi) was created from the commit above which contains
+# metashare-specific code
+django-selectable==0.5.2metashare
+
 django-selenium==0.9.7
 djangosaml2==0.10.0
 flup==1.0.2
 httplib2==0.9.1
-psycopg2==2.6.1
 pycountry==1.12
 pygeoip==0.3.2
 pyoai==2.4.4
-# Currently we do not require user authentication for downloading resources
-#  If you want to implement federated login, you need pysaml2, but beware that
-#  versions older than 4.5 have known vulnerabilities.
-#  We did not check if updating to pysaml 4.5 would work with the current code.
-# pysaml2==0.4.3
+pysaml2==0.4.3
 pysolr==2.1.0-beta
 python-dateutil==2.4.2
 requests==2.7.0
@@ -32,3 +35,4 @@ six==1.9.0
 Unidecode==0.04.18
 wsgiref==0.1.2
 gunicorn
+django-widget-tweaks

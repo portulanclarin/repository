@@ -40,6 +40,8 @@ from metashare.storage.models import PUBLISHED, INGESTED, INTERNAL, \
     ALLOWED_ARCHIVE_EXTENSIONS
 from metashare.utils import verify_subclass, create_breadcrumb_template_params
 
+from metashare.repository import pids
+
 
 csrf_protect_m = method_decorator(csrf_protect)
 
@@ -68,23 +70,23 @@ class ResourceComponentInlineFormSet(ReverseInlineFormSet):
             #raise ValidationError('The content of the {} general info is not valid.'.format(self.get_actual_resourceComponentType()._meta.verbose_name))
             #raise AssertionError("Meaningful error message for general info")
             error_list = error_list + 'The content of the {} general info is not valid.'.format(self.get_actual_resourceComponentType()._meta.verbose_name)
-        
+
         if error_list != '':
             raise ValidationError(error_list)
         super(ResourceComponentInlineFormSet, self).clean()
-        
+
     def clean_media(self, parent, fieldnames):
         '''
-        Clean the list of media data in the XXMediaType parent object. 
+        Clean the list of media data in the XXMediaType parent object.
         '''
-        
+
         error = ''
         for modelfieldname in fieldnames:
             if modelfieldname not in self.data:
                 continue
             value = self.data[modelfieldname]
-            if not value:        
-                error = error + format(modelfieldname) + ' error. '                
+            if not value:
+                error = error + format(modelfieldname) + ' error. '
         return error
 
     def clean_corpus_one2many(self, corpusmediatype):
@@ -101,7 +103,7 @@ class ResourceComponentInlineFormSet(ReverseInlineFormSet):
             num_infos = corpusmediatype.corpusvideoinfotype_model_set.all().count()
             if num_infos == 0:
                 error += media + ' error. '
-        return error    
+        return error
 
     def clean_corpus(self, corpus):
         return self.clean_corpus_one2many(corpus.corpusMediaType) \
@@ -116,13 +118,13 @@ class ResourceComponentInlineFormSet(ReverseInlineFormSet):
         return self.clean_media(lexicon.lexicalConceptualResourceMediaType, \
              ('lexicalConceptualResourceTextInfo', 'lexicalConceptualResourceAudioInfo', \
               'lexicalConceptualResourceVideoInfo', 'lexicalConceptualResourceImageInfo'))
-                
+
     def clean_toolservice(self, tool):
         return ''
-    
+
     def save_media(self, parent, fieldnames):
         '''
-        Save the list of media data in the XXMediaType parent object. 
+        Save the list of media data in the XXMediaType parent object.
         '''
         for modelfieldname in fieldnames:
             if modelfieldname not in self.data:
@@ -136,7 +138,7 @@ class ResourceComponentInlineFormSet(ReverseInlineFormSet):
             setattr(parent, modelfieldname, child)
             parent.save()
 
-    
+
     def save_corpus(self, corpus, commit):
         self.save_media(corpus.corpusMediaType, \
              ('corpusAudioInfo', 'corpusImageInfo', 'corpusTextNumericalInfo', 'corpusTextNgramInfo'))
@@ -149,7 +151,7 @@ class ResourceComponentInlineFormSet(ReverseInlineFormSet):
         self.save_media(lexicon.lexicalConceptualResourceMediaType, \
              ('lexicalConceptualResourceTextInfo', 'lexicalConceptualResourceAudioInfo', \
               'lexicalConceptualResourceVideoInfo', 'lexicalConceptualResourceImageInfo'))
-                
+
     def save_toolservice(self, tool, commit):
         pass
 
@@ -178,7 +180,7 @@ class ResourceComponentInlineFormSet(ReverseInlineFormSet):
             raise Exception, "unexpected resource component class type: {}".format(actual_instance.__class__.__name__)
         super(ResourceComponentInlineFormSet, self).save(commit)
         return (actual_instance,)
-        
+
 # pylint: disable-msg=R0901
 class ResourceComponentInline(ReverseInlineModelAdmin):
     formset = ResourceComponentInlineFormSet
@@ -205,7 +207,7 @@ class IdentificationInline(ReverseInlineModelAdmin):
 def change_resource_status(resource, status, precondition_status=None):
     '''
     Change the status of the given resource to the new status given.
-    
+
     If precondition_status is not None, then apply the change ONLY IF the
     current status of the resource is precondition_status; otherwise do nothing.
     The status of non-master copy resources is never changed.
@@ -264,9 +266,9 @@ class MetadataForm(forms.ModelForm):
 class MetadataInline(ReverseInlineModelAdmin):
     form = MetadataForm
     readonly_fields = ('metadataCreationDate', 'metadataLastDateUpdated',)
-    
 
-class ResourceModelAdmin(SchemaModelAdmin):            
+
+class ResourceModelAdmin(SchemaModelAdmin):
     inline_type = 'stacked'
     custom_one2one_inlines = {'identificationInfo':IdentificationInline,
                               'resourceComponentType':ResourceComponentInline,
@@ -333,6 +335,7 @@ class ResourceModelAdmin(SchemaModelAdmin):
                                           precondition_status=INTERNAL):
                     successful += 1
                     saveLRStats(obj, INGEST_STAT, request)
+                    pids.add_pid_to_resource(obj.id)
             if successful > 0:
                 messages.info(request, ungettext(
                     'Successfully ingested %(internal)s internal resource.',
@@ -375,7 +378,7 @@ class ResourceModelAdmin(SchemaModelAdmin):
         response['Content-Disposition'] = \
             'attachment; filename=%s' % (zipfilename)
         in_memory.seek(0)
-        response.write(in_memory.read())  
+        response.write(in_memory.read())
         return response
 
     export_xml_action.short_description = \
@@ -387,40 +390,40 @@ class ResourceModelAdmin(SchemaModelAdmin):
         """
         owners = obj.owners.all()
         if owners.count() == 0:
-            return None        
+            return None
         owners_list = ''
         for owner in owners.all():
             owners_list += owner.username + ', '
         owners_list = owners_list.rstrip(', ')
-        return owners_list    
-    
+        return owners_list
+
     def editor_Groups(self, obj):
         """
         Method used for changelist view for resources.
         """
         editor_groups = obj.editor_groups.all()
         if editor_groups.count() == 0:
-            return None        
+            return None
         groups_list = ''
-        for group in editor_groups.all():            
+        for group in editor_groups.all():
             groups_list += group.name + ', '
         groups_list = groups_list.rstrip(', ')
         return groups_list
-    
+
     class ConfirmDeleteForm(forms.Form):
         _selected_action = forms.CharField(widget=forms.MultipleHiddenInput)
-    
+
     class IntermediateMultiSelectForm(forms.Form):
         _selected_action = forms.CharField(widget=forms.MultipleHiddenInput)
-        
+
         def __init__(self, choices = None, *args, **kwargs):
-            super(ResourceModelAdmin.IntermediateMultiSelectForm, self).__init__(*args, **kwargs)  
+            super(ResourceModelAdmin.IntermediateMultiSelectForm, self).__init__(*args, **kwargs)
             if choices is not None:
                 self.choices = choices
-                self.fields['multifield'] = forms.ModelMultipleChoiceField(self.choices)        
+                self.fields['multifield'] = forms.ModelMultipleChoiceField(self.choices)
 
 
-    @csrf_protect_m    
+    @csrf_protect_m
     def delete(self, request, queryset):
         """
         Form to mark a resource as delete.
@@ -439,7 +442,7 @@ class ResourceModelAdmin(SchemaModelAdmin):
             if self.has_delete_permission(request, resource):
                 can_be_deleted.append(resource)
             else:
-                cannot_be_deleted.append(resource)   
+                cannot_be_deleted.append(resource)
         if 'delete' in request.POST:
             form = self.ConfirmDeleteForm(request.POST)
             if form.is_valid():
@@ -454,7 +457,7 @@ class ResourceModelAdmin(SchemaModelAdmin):
         else:
             form = self.ConfirmDeleteForm(initial={admin.ACTION_CHECKBOX_NAME:
                             request.POST.getlist(admin.ACTION_CHECKBOX_NAME)})
-    
+
         dictionary = {
                       'title': _('Are you sure?'),
                       'can_be_deleted': can_be_deleted,
@@ -464,7 +467,7 @@ class ResourceModelAdmin(SchemaModelAdmin):
                       'path': request.get_full_path()
                      }
         dictionary.update(create_breadcrumb_template_params(self.model, _('Delete resource')))
-    
+
         return render_to_response('admin/repository/resourceinfotype_model/delete_selected_confirmation.html',
                                   dictionary,
                                   context_instance=RequestContext(request))
@@ -472,7 +475,7 @@ class ResourceModelAdmin(SchemaModelAdmin):
     delete.short_description = _("Mark selected resources as deleted")
 
 
-    @csrf_protect_m    
+    @csrf_protect_m
     def add_group(self, request, queryset):
         """
         Form to add an editor group to a resource.
@@ -513,14 +516,14 @@ class ResourceModelAdmin(SchemaModelAdmin):
                 ResourceModelAdmin._get_addable_editor_groups(request.user),
                 initial={admin.ACTION_CHECKBOX_NAME:
                          request.POST.getlist(admin.ACTION_CHECKBOX_NAME)})
-    
+
         dictionary = {
                       'selected_resources': queryset,
                       'form': form,
                       'path': request.get_full_path()
                      }
         dictionary.update(create_breadcrumb_template_params(self.model, _('Add editor group')))
-    
+
         return render_to_response('admin/repository/resourceinfotype_model/add_editor_group.html',
                                   dictionary,
                                   context_instance=RequestContext(request))
@@ -533,7 +536,7 @@ class ResourceModelAdmin(SchemaModelAdmin):
         """
         Returns a queryset of the `EditorGroup` objects that the given user is
         allowed to add to a resource.
-        
+
         Superusers can add all editor groups. Other users can only add those
         editor groups of which they are a member or a manager.
         """
@@ -562,12 +565,12 @@ class ResourceModelAdmin(SchemaModelAdmin):
             self.message_user(request,
                               _('Cancelled removing editor groups.'))
             return
-        elif 'remove_editor_group' in request.POST:  
-            query = EditorGroup.objects.all()           
-            form = self.IntermediateMultiSelectForm(query, request.POST)            
+        elif 'remove_editor_group' in request.POST:
+            query = EditorGroup.objects.all()
+            form = self.IntermediateMultiSelectForm(query, request.POST)
             if form.is_valid():
                 groups = form.cleaned_data['multifield']
-                for obj in queryset:  
+                for obj in queryset:
                     obj.editor_groups.remove(*groups)
                     obj.save()
                 self.message_user(request, _('Successfully removed ' \
@@ -577,14 +580,14 @@ class ResourceModelAdmin(SchemaModelAdmin):
             form = self.IntermediateMultiSelectForm(EditorGroup.objects.all(),
                 initial={admin.ACTION_CHECKBOX_NAME:
                          request.POST.getlist(admin.ACTION_CHECKBOX_NAME)})
-    
+
         dictionary = {
                       'selected_resources': queryset,
                       'form': form,
                       'path': request.get_full_path()
                      }
         dictionary.update(create_breadcrumb_template_params(self.model, _('Remove editor group')))
-    
+
         return render_to_response('admin/repository/resourceinfotype_model/'
                                   'remove_editor_group.html',
                                   dictionary,
@@ -594,7 +597,7 @@ class ResourceModelAdmin(SchemaModelAdmin):
                                        "resources")
 
 
-    @csrf_protect_m    
+    @csrf_protect_m
     def add_owner(self, request, queryset):
         """
         Form to add an owner to a resource.
@@ -630,14 +633,14 @@ class ResourceModelAdmin(SchemaModelAdmin):
                 User.objects.filter(is_active=True),
                 initial={admin.ACTION_CHECKBOX_NAME:
                          request.POST.getlist(admin.ACTION_CHECKBOX_NAME)})
-    
+
         dictionary = {
                       'selected_resources': queryset,
                       'form': form,
                       'path': request.get_full_path()
                      }
         dictionary.update(create_breadcrumb_template_params(self.model, _('Add owner')))
-    
+
         return render_to_response('admin/repository/resourceinfotype_model/add_owner.html',
                                   dictionary,
                                   context_instance=RequestContext(request))
@@ -645,7 +648,7 @@ class ResourceModelAdmin(SchemaModelAdmin):
     add_owner.short_description = _("Add owners to selected resources")
 
 
-    @csrf_protect_m    
+    @csrf_protect_m
     def remove_owner(self, request, queryset):
         """
         Form to remove an owner from a resource.
@@ -659,31 +662,31 @@ class ResourceModelAdmin(SchemaModelAdmin):
             return
         elif 'remove_owner' in request.POST:
             form = self.IntermediateMultiSelectForm(
-                User.objects.filter(is_active=True), request.POST)            
+                User.objects.filter(is_active=True), request.POST)
             if form.is_valid():
                 owners = form.cleaned_data['multifield']
-                for obj in queryset:  
+                for obj in queryset:
                     obj.owners.remove(*owners)
                     obj.save()
                 self.message_user(request, _('Successfully removed owners ' \
-                                             'from the selected resources.'))               
+                                             'from the selected resources.'))
                 return HttpResponseRedirect(request.get_full_path())
         else:
             form = self.IntermediateMultiSelectForm(
                 User.objects.filter(is_active=True),
                 initial={admin.ACTION_CHECKBOX_NAME:
                          request.POST.getlist(admin.ACTION_CHECKBOX_NAME)})
-    
+
         dictionary = {
                       'selected_resources': queryset,
                       'form': form,
                       'path': request.get_full_path()
                      }
         dictionary.update(create_breadcrumb_template_params(self.model, _('Remove owner')))
-    
+
         return render_to_response('admin/repository/resourceinfotype_model/remove_owner.html',
                                   dictionary,
-                                  context_instance=RequestContext(request)) 
+                                  context_instance=RequestContext(request))
 
     remove_owner.short_description = _("Remove owners from selected resources")
 
@@ -698,7 +701,7 @@ class ResourceModelAdmin(SchemaModelAdmin):
             return update_wrapper(wrapper, view)
 
         info = self.model._meta.app_label, self.model._meta.module_name
-        
+
         urlpatterns = patterns('',
             url(r'^(.+)/upload-data/$',
                 wrap(self.uploaddata_view),
@@ -711,8 +714,8 @@ class ResourceModelAdmin(SchemaModelAdmin):
                 name='%s_%s_exportxml' % info),
         ) + urlpatterns
         return urlpatterns
-    
-    
+
+
     @csrf_protect_m
     def changelist_view_filtered(self, request, extra_context=None):
         '''
@@ -778,13 +781,13 @@ class ResourceModelAdmin(SchemaModelAdmin):
 
             if form_validated:
                 # Check if a new file has been uploaded to resource.
-                resource = request.FILES['resource']                
+                resource = request.FILES['resource']
                 _extension = None
                 for _allowed_extension in ALLOWED_ARCHIVE_EXTENSIONS:
                     if resource.name.endswith(_allowed_extension):
                         _extension = _allowed_extension
                         break
-                
+
                 # We can assert that an extension has been found as the form
                 # validation would have raise a ValidationError otherwise;
                 # still, we raise an AssertionError if anything goes wrong!
@@ -795,7 +798,7 @@ class ResourceModelAdmin(SchemaModelAdmin):
                     _out_filename = '{}/archive.{}'.format(_storage_folder,
                       _extension)
 
-                    # Copy uploaded file to storage folder for this object.                    
+                    # Copy uploaded file to storage folder for this object.
                     with open(_out_filename, 'wb') as _out_file:
                         # pylint: disable-msg=E1101
                         for _chunk in resource.chunks():
@@ -824,7 +827,8 @@ class ResourceModelAdmin(SchemaModelAdmin):
             'existing_download': existing_download,
             'object_id': object_id,
             'original': obj,
-            'root_path': self.admin_site.root_path,
+            # 'root_path': self.admin_site.root_path,
+            'root_path': '/{}admin/'.format(settings.DJANGO_BASE),
             'app_label': opts.app_label,
         }
         context.update(extra_context or {})
@@ -865,7 +869,7 @@ class ResourceModelAdmin(SchemaModelAdmin):
             root_node = obj.export_to_elementtree()
             xml_string = to_xml_string(root_node, encoding="utf-8").encode('utf-8')
             resource_filename = 'resource-{0}.xml'.format(object_id)
-        
+
             response = http.HttpResponse(xml_string, mimetype='text/xml')
             response['Content-Disposition'] = 'attachment; filename=%s' % (resource_filename)
             return response
@@ -918,8 +922,8 @@ class ResourceModelAdmin(SchemaModelAdmin):
                 if _is_visible:
                     _relevant_fields.append(_fieldname_to_append)
                     _verbose_names.append(self.model.get_verbose_name(_field_name))
-            
-            
+
+
             if len(_visible_fields) > 0:
                 _detail = ', '.join(_visible_fields_verbose_names)
                 _caption = '{0} administration information: {1}'.format(_field_status.capitalize(), _detail)
@@ -929,7 +933,7 @@ class ResourceModelAdmin(SchemaModelAdmin):
                 _caption = '{0} content information: {1}'.format(_field_status.capitalize(), '')
                 _fieldset = {'fields': _visible_content_fields}
                 _content_fieldsets.append((_caption, _fieldset))
-        
+
         _fieldsets += _content_fieldsets
 
         _hidden_fields = self.get_hidden_fields()
@@ -945,7 +949,8 @@ class ResourceModelAdmin(SchemaModelAdmin):
         context = {
             'title': 'Add %s' % force_unicode(opts.verbose_name),
             'show_delete': False,
-            'root_path': self.admin_site.root_path,
+            # 'root_path': self.admin_site.root_path,
+            'root_path': '/{}admin/'.format(settings.DJANGO_BASE),
             'app_label': opts.app_label,
             'media': mark_safe(media),
             'add': True,
@@ -976,7 +981,7 @@ class ResourceModelAdmin(SchemaModelAdmin):
         """
         Returns a QuerySet of all model instances that can be edited by the
         admin site.
-        
+
         This is used by changelist_view, for example, but also for determining
         whether the current user may edit a resource or not.
         """
@@ -990,7 +995,7 @@ class ResourceModelAdmin(SchemaModelAdmin):
                     | Q(editor_groups__name__in=
                            request.user.groups.values_list('name', flat=True)))
         return result
-    
+
 
 
     def has_delete_permission(self, request, obj=None):
@@ -1121,7 +1126,7 @@ class ResourceModelAdmin(SchemaModelAdmin):
                 content_info.lexicalConceptualResourceMediaType.lexicalConceptualResourceImageInfo)
         elif isinstance(content_info, toolServiceInfoType_model):
             structures['toolServiceInfoId'] = content_info.pk
-            
+
         else:
             raise NotImplementedError, "Cannot deal with '{}' resource types just yet".format(content_info.__class__.__name__)
         return structures
@@ -1141,7 +1146,7 @@ class ResourceModelAdmin(SchemaModelAdmin):
         '''
         Add the current user to the list of owners for the current resource and
         the user's `EditorGroup`s to the resource' editor_groups list.
-        
+
         Due to the validation logic of django admin, we add the user/groups to
         the form's clean_data object rather than the resource object's m2m
         fields; the actual fields will be filled in save_m2m().
@@ -1174,7 +1179,7 @@ class ResourceModelAdmin(SchemaModelAdmin):
     def add_view(self, request, form_url='', extra_context=None):
         _extra_context = extra_context or {}
         _extra_context.update({'DJANGO_BASE':settings.DJANGO_BASE})
-        
+
         # First, we show the resource type selection view:
         if not request.POST:
             return self.resource_type_selection_view(request, form_url, extra_context)
@@ -1191,22 +1196,22 @@ class ResourceModelAdmin(SchemaModelAdmin):
         self.add_user_to_resource_owners(request)
         # And in any case, we serve the usual change form if we have a post request
         return super(ResourceModelAdmin, self).add_view(request, form_url, _extra_context)
-        
+
 
     def save_model(self, request, obj, form, change):
         super(ResourceModelAdmin, self).save_model(request, obj, form, change)
         # update statistics
         if hasattr(obj, 'storage_object') and obj.storage_object is not None:
-            saveLRStats(obj, UPDATE_STAT, request)          
-    
+            saveLRStats(obj, UPDATE_STAT, request)
+
     def delete_model(self, request, obj):
         obj.storage_object.deleted = True
         obj.storage_object.save()
         # explicitly write metadata XML and storage object to the storage folder
         obj.storage_object.update_storage()
         # update statistics
-        saveLRStats(obj, DELETE_STAT, request)          
-                
+        saveLRStats(obj, DELETE_STAT, request)
+
     def change_view(self, request, object_id, extra_context=None):
         _extra_context = extra_context or {}
         _extra_context.update({'DJANGO_BASE':settings.DJANGO_BASE})
@@ -1222,4 +1227,4 @@ class LicenceForm(forms.ModelForm):
 class LicenceModelAdmin(SchemaModelAdmin):
     form = LicenceForm
 
-    
+

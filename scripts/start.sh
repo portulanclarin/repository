@@ -9,12 +9,9 @@ cd $(dirname $(readlink -f $0))/..
 source functions.sh
 
 assert_not_root
-# TODO: these are broken because manage.py is invoked from cron without
-#  setting up the environment variables from env-defaults.sh/env-overrides.sh
-#schedule_django_tasks
-start_solr
 
-# allow SOLR to startup
-sleep 10
+if ! solr_is_running; then
+    start_solr
+fi
 
 start_gunicorn

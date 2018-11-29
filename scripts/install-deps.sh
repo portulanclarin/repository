@@ -11,6 +11,6 @@ source functions.sh
 assert_not_root
 init_deps_dirs
 install_system_packages
-install_python_packages
+install_python_packages requirements.txt
 install_bootstrap
 install_jquery

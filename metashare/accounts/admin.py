@@ -110,7 +110,7 @@ class EditorGroupAdmin(admin.ModelAdmin):
         return ', '.join(member.username for member in obj.get_members())
 
     _members_display.short_description = _('Members')
-    
+
     def _managing_group_display(self, obj):
         """
         Returns a string representing a list of the managing groups of the
@@ -120,7 +120,7 @@ class EditorGroupAdmin(admin.ModelAdmin):
                          in EditorGroupManagers.objects.filter(managed_group=obj))
 
     _managing_group_display.short_description = _('Managing groups')
-    
+
     def _managers_display(self, obj):
         """
         Returns a string representing a list of the managers of the given
@@ -192,14 +192,14 @@ class EditorGroupAdmin(admin.ModelAdmin):
             userprofiles = UserProfile.objects.filter(user__is_active=True)
             form = self.UserProfileinEditorGroupForm(choices=userprofiles,
                 initial={'_selected_action': request.POST.getlist(admin.ACTION_CHECKBOX_NAME)})
-        
+
         dictionary = {'title': _('Add Users to Editor Group'),
                       'selected_editorgroups': queryset,
                       'form': form,
                       'path': request.get_full_path()
                      }
         dictionary.update(create_breadcrumb_template_params(self.model, _('Add user')))
-        
+
         return render_to_response('accounts/add_user_profile_to_editor_group.html',
                                   dictionary,
                                   context_instance=RequestContext(request))
@@ -222,19 +222,19 @@ class EditorGroupAdmin(admin.ModelAdmin):
                             userprofile.user.groups.remove(obj)
                     self.message_user(request, _('Successfully removed users from editor group.'))
                     return HttpResponseRedirect(request.get_full_path())
-    
+
             if not form:
                 userprofiles = UserProfile.objects.filter(user__is_active=True)
                 form = self.UserProfileinEditorGroupForm(choices=userprofiles,
                     initial={'_selected_action': request.POST.getlist(admin.ACTION_CHECKBOX_NAME)})
-        
+
             dictionary = {'title': _('Remove Users from Editor Group'),
                           'selected_editorgroups': queryset,
                           'form': form,
                           'path': request.get_full_path()
                          }
             dictionary.update(create_breadcrumb_template_params(self.model, _('Remove user')))
-        
+
             return render_to_response('accounts/remove_user_profile_from_editor_group.html',
                                       dictionary,
                                       context_instance=RequestContext(request))
@@ -312,7 +312,7 @@ class EditorGroupApplicationAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         """
         Return the list of fields to be in readonly mode.
-        
+
         Managers cannot modify applications, they can only add them or delete them.
         """
         if not request.user.is_superuser:
@@ -355,7 +355,7 @@ class EditorGroupApplicationAdmin(admin.ModelAdmin):
               'from the editor group "%s".') % (obj.user.get_full_name(),
                                                 obj.editor_group,))
 
-        super(EditorGroupApplicationAdmin, self).log_deletion(request, obj, object_repr)        
+        super(EditorGroupApplicationAdmin, self).log_deletion(request, obj, object_repr)
 
     def delete_selected(self, request, queryset):
         """
@@ -370,18 +370,18 @@ class EditorGroupApplicationAdmin(admin.ModelAdmin):
 
         opts = self.model._meta
         app_label = opts.app_label
-    
+
         # Check that the user has delete permission for the actual model
         if not self.has_delete_permission(request):
             raise PermissionDenied
-    
+
         using = router.db_for_write(self.model)
-    
+
         # Populate deletable_objects, a data structure of all related objects that
         # will also be deleted.
         deletable_objects, perms_needed, protected = get_deleted_objects(
             queryset, opts, request.user, self.admin_site, using)
-    
+
         # The user has already confirmed the deletion.
         # Do the deletion and return a None to display the change list view again.
         if request.POST.get('post'):
@@ -398,17 +398,17 @@ class EditorGroupApplicationAdmin(admin.ModelAdmin):
                 })
             # Return None to display the change list page again.
             return None
-    
+
         if len(queryset) == 1:
             objects_name = force_unicode(opts.verbose_name)
         else:
             objects_name = force_unicode(opts.verbose_name_plural)
-    
+
         if perms_needed or protected:
             title = _("Cannot turn down %(name)s") % {"name": objects_name}
         else:
             title = _("Are you sure?")
-    
+
         context = {
             "title": title,
             "objects_name": objects_name,
@@ -417,11 +417,12 @@ class EditorGroupApplicationAdmin(admin.ModelAdmin):
             "perms_lacking": perms_needed,
             "protected": protected,
             "opts": opts,
-            "root_path": self.admin_site.root_path,
+            # "root_path": self.admin_site.root_path,
+            'root_path': '/{}admin/'.format(settings.DJANGO_BASE),
             "app_label": app_label,
             'action_checkbox_name': helpers.ACTION_CHECKBOX_NAME,
         }
-    
+
         # Display the confirmation page
         return render_to_response("accounts/delete_editor_group_application_selected_confirmation.html", \
           context, context_instance=template.RequestContext(request))
@@ -512,19 +513,19 @@ class EditorGroupManagersAdmin(admin.ModelAdmin):
                             userprofile.user.groups.add(obj)
                     self.message_user(request, _('Successfully added users to editor group managers.'))
                     return HttpResponseRedirect(request.get_full_path())
-    
+
             if not form:
                 userprofiles = UserProfile.objects.filter(user__is_active=True)
                 form = self.UserProfileinEditorGroupManagersForm(choices=userprofiles,
                     initial={'_selected_action': request.POST.getlist(admin.ACTION_CHECKBOX_NAME)})
-            
+
             dictionary = {'title': _('Add Users to Editor Group Managers'),
                           'selected_editorgroupmanagers': queryset,
                           'form': form,
                           'path': request.get_full_path()
                          }
             dictionary.update(create_breadcrumb_template_params(self.model, _('Add user')))
-        
+
             return render_to_response('accounts/add_user_profile_to_editor_group_managers.html',
                                       dictionary,
                                       context_instance=RequestContext(request))
@@ -553,19 +554,19 @@ class EditorGroupManagersAdmin(admin.ModelAdmin):
                     self.message_user(request, _('Successfully removed users ' \
                                                  'from editor group managers.'))
                     return HttpResponseRedirect(request.get_full_path())
-    
+
             if not form:
-                userprofiles = UserProfile.objects.filter(user__is_active=True)                    
+                userprofiles = UserProfile.objects.filter(user__is_active=True)
                 form = self.UserProfileinEditorGroupManagersForm(choices=userprofiles,
                     initial={'_selected_action': request.POST.getlist(admin.ACTION_CHECKBOX_NAME)})
-        
+
             dictionary = {'title': _('Remove Users from Editor Group Managers'),
                           'selected_editorgroupmanagers': queryset,
                           'form': form,
                           'path': request.get_full_path()
                          }
             dictionary.update(create_breadcrumb_template_params(self.model, _('Remove user')))
-        
+
             return render_to_response('accounts/remove_user_profile_from_editor_group_managers.html',
                                       dictionary,
                                       context_instance=RequestContext(request))
@@ -595,7 +596,7 @@ class OrganizationAdmin(admin.ModelAdmin):
         return ', '.join(member.username for member in obj.get_members())
 
     _members_display.short_description = _('Members')
-    
+
     def _organization_managing_group_display(self, obj):
         """
         Returns a string representing a list of the organization managing groups of the
@@ -605,7 +606,7 @@ class OrganizationAdmin(admin.ModelAdmin):
                          in OrganizationManagers.objects.filter(managed_organization=obj))
 
     _organization_managing_group_display.short_description = _('Managing groups')
-    
+
     def _organization_managers_display(self, obj):
         """
         Returns a string representing a list of the managers of the given
@@ -658,14 +659,14 @@ class OrganizationAdmin(admin.ModelAdmin):
             userprofiles = UserProfile.objects.filter(user__is_active=True)
             form = self.UserProfileinOrganizationForm(choices=userprofiles,
                 initial={'_selected_action': request.POST.getlist(admin.ACTION_CHECKBOX_NAME)})
-        
+
             dictionary = {'title': _('Add Users to Organization'),
                           'selected_organizations': queryset,
                           'form': form,
                           'path': request.get_full_path()
                          }
             dictionary.update(create_breadcrumb_template_params(self.model, _('Add user')))
-        
+
         return render_to_response('accounts/add_user_profile_to_organization.html',
                                   dictionary,
                                   context_instance=RequestContext(request))
@@ -688,19 +689,19 @@ class OrganizationAdmin(admin.ModelAdmin):
                             userprofile.user.groups.remove(obj)
                     self.message_user(request, _('Successfully removed users from organization.'))
                     return HttpResponseRedirect(request.get_full_path())
-    
+
             if not form:
                 userprofiles = UserProfile.objects.filter(user__is_active=True)
                 form = self.UserProfileinOrganizationForm(choices=userprofiles,
                     initial={'_selected_action': request.POST.getlist(admin.ACTION_CHECKBOX_NAME)})
-        
+
             dictionary = {'title': _('Remove Users from Organization'),
                           'selected_organizations': queryset,
                           'form': form,
                           'path': request.get_full_path()
                          }
             dictionary.update(create_breadcrumb_template_params(self.model, _('Remove user')))
-        
+
             return render_to_response('accounts/remove_user_profile_from_organization.html',
                                       dictionary,
                                       context_instance=RequestContext(request))
@@ -773,7 +774,7 @@ class OrganizationApplicationAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         """
         Return the list of fields to be in readonly mode.
-        
+
         Organization managers cannot modify applications, they can only add them or delete them.
         """
         if not request.user.is_superuser:
@@ -808,7 +809,7 @@ class OrganizationApplicationAdmin(admin.ModelAdmin):
                     ' of "%s" for membership in the organization "%s".')
                             % (obj.user.get_full_name(), obj.organization,))
 
-        super(OrganizationApplicationAdmin, self).log_deletion(request, obj, object_repr)        
+        super(OrganizationApplicationAdmin, self).log_deletion(request, obj, object_repr)
 
     def delete_selected(self, request, queryset):
         """
@@ -823,18 +824,18 @@ class OrganizationApplicationAdmin(admin.ModelAdmin):
 
         opts = self.model._meta
         app_label = opts.app_label
-    
+
         # Check that the user has delete permission for the actual model
         if not self.has_delete_permission(request):
             raise PermissionDenied
-    
+
         using = router.db_for_write(self.model)
-    
+
         # Populate deletable_objects, a data structure of all related objects that
         # will also be deleted.
         deletable_objects, perms_needed, protected = get_deleted_objects(
             queryset, opts, request.user, self.admin_site, using)
-    
+
         # The user has already confirmed the deletion.
         # Do the deletion and return a None to display the change list view again.
         if request.POST.get('post'):
@@ -851,17 +852,17 @@ class OrganizationApplicationAdmin(admin.ModelAdmin):
                 })
             # Return None to display the change list page again.
             return None
-    
+
         if len(queryset) == 1:
             objects_name = force_unicode(opts.verbose_name)
         else:
             objects_name = force_unicode(opts.verbose_name_plural)
-    
+
         if perms_needed or protected:
             title = _("Cannot turn down %(name)s") % {"name": objects_name}
         else:
             title = _("Are you sure?")
-    
+
         context = {
             "title": title,
             "objects_name": objects_name,
@@ -870,11 +871,12 @@ class OrganizationApplicationAdmin(admin.ModelAdmin):
             "perms_lacking": perms_needed,
             "protected": protected,
             "opts": opts,
-            "root_path": self.admin_site.root_path,
+            # "root_path": self.admin_site.root_path,
+            'root_path': '/{}admin/'.format(settings.DJANGO_BASE),
             "app_label": app_label,
             'action_checkbox_name': helpers.ACTION_CHECKBOX_NAME,
         }
-    
+
         # Display the confirmation page
         return render_to_response("accounts/delete_organization_application_selected_confirmation.html", \
           context, context_instance=template.RequestContext(request))
@@ -963,19 +965,19 @@ class OrganizationManagersAdmin(admin.ModelAdmin):
                             user.groups.add(obj.managed_organization)
                     self.message_user(request, _('Successfully added users to organization managers.'))
                     return HttpResponseRedirect(request.get_full_path())
-    
+
             if not form:
                 userprofiles = UserProfile.objects.filter(user__is_active=True)
                 form = self.UserProfileinOrganizationManagersForm(choices=userprofiles,
                     initial={'_selected_action': request.POST.getlist(admin.ACTION_CHECKBOX_NAME)})
-            
+
             dictionary = {'title': _('Add Users to Organization Manager Group'),
                           'selected_organizationmanagers': queryset,
                           'form': form,
                           'path': request.get_full_path()
                          }
             dictionary.update(create_breadcrumb_template_params(self.model, _('Add user')))
-        
+
             return render_to_response('accounts/add_user_profile_to_organization_managers.html',
                                       dictionary,
                                       context_instance=RequestContext(request))
@@ -1002,12 +1004,12 @@ class OrganizationManagersAdmin(admin.ModelAdmin):
                             userprofile.user.groups.remove(obj)
                     self.message_user(request, _('Successfully removed users from organization managers.'))
                     return HttpResponseRedirect(request.get_full_path())
-    
+
             if not form:
-                userprofiles = UserProfile.objects.filter(user__is_active=True)                    
+                userprofiles = UserProfile.objects.filter(user__is_active=True)
                 form = self.UserProfileinOrganizationManagersForm(choices=userprofiles,
                     initial={'_selected_action': request.POST.getlist(admin.ACTION_CHECKBOX_NAME)})
-        
+
             dictionary = {'title':
                             _('Remove Users from Organization Manager Group'),
                           'selected_organizationmanagers': queryset,
@@ -1015,7 +1017,7 @@ class OrganizationManagersAdmin(admin.ModelAdmin):
                           'path': request.get_full_path()
                          }
             dictionary.update(create_breadcrumb_template_params(self.model, _('Remove user')))
-        
+
             return render_to_response('accounts/remove_user_profile_from_organization_managers.html',
                                       dictionary,
                                       context_instance=RequestContext(request))

@@ -1,16 +1,18 @@
 import logging
 from django.contrib.auth.decorators import login_required
+from django.core.urlresolvers import reverse
 from django.shortcuts import render_to_response, get_object_or_404, redirect
 from django.template import RequestContext
 from django.http import HttpResponse
 from django.utils.safestring import mark_safe
 
-from metashare.settings import LOG_HANDLER, OAIPMH_URL
+from metashare.settings import LOG_HANDLER
 from metashare.oaipmh.forms import HarvestForm, ExposeForm
-from metashare.oaipmh import oaipmh_server, supported_commands, \
+from metashare.oaipmh import oaipmh_proto_server, oaipmh_server, supported_commands, \
     key_list_ids_for_import, key_import, key_list_metadata_format, \
     time_it, smart_extend
-    
+from oaipmh.error import BadArgumentError
+
 # Setup logging support.
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(LOG_HANDLER)
@@ -55,7 +57,7 @@ def harvest(request):
                     "Time taken": tm,
                 }
                 mark_obj_as_html_ok(data_dict)
-                
+
                 # ok so use javascript if needed
                 if key_list_ids_for_import == what_to_do:
                     javascript_for_id = 1
@@ -67,7 +69,7 @@ def harvest(request):
         except Exception, exc:
             LOGGER.error(exc, exc_info=True)
             error_str = repr(exc)
-    
+
     # give it all params together with form params
     params = smart_extend(
         {'form_input': form},
@@ -88,7 +90,7 @@ def expose(request):
     if form.is_valid():
         # construct the url, that requests to the oai server
         verb = form.cleaned_data['verb']
-        success_url = '{}?verb={}'.format(OAIPMH_URL, verb)
+        success_url = '{}?verb={}'.format(reverse('oaipmh_view'), verb)
         itemid = form.cleaned_data['itemid']
         if itemid:
             success_url += "&identifier={}".format(itemid)
@@ -107,56 +109,28 @@ def expose(request):
         resumptionToken = form.cleaned_data['resumptionToken']
         if resumptionToken:
             success_url += "&resumptionToken={}".format(resumptionToken)
-        return redirect(success_url)                
+        return redirect(success_url)
     return render_to_response(
         'oaipmh/expose.html',
         {'form': form},
         context_instance=RequestContext(request))
 
-        
+
 def oaipmh_view(request):
     """
     Renders the response of the OAI-PMH Server
     """
-    def get_client_ip(request):
-        """
-        Tracks the remote IP adress
-        """
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0]
-        else:
-            ip = request.META.get('REMOTE_ADDR')
-        return ip
-    
+    arguments = request.POST if request.method == "POST" else request.GET
+    multivalue_arg = None
+    for arg in arguments:
+        if len(arguments.getlist(arg)) > 1:
+            multivalue_arg = arg
+            break
 
-    request_kw = {}
-    verb = (request.GET.get("verb") or request.POST.get("verb"))
-    if verb:
-        request_kw['verb'] = verb
-    metadataPrefix = (request.GET.get("metadataPrefix") or \
-                      request.POST.get("metadataPrefix"))
-    if metadataPrefix:
-        request_kw['metadataPrefix'] = metadataPrefix
-    from_ = (request.GET.get("from") or request.POST.get("from"))
-    if from_:
-        request_kw['from'] = from_
-    until = (request.GET.get("until") or request.POST.get("until"))
-    if until:
-        request_kw['until'] = until
-    set_ = (request.GET.get("set") or request.POST.get("set"))
-    if set_:
-        request_kw['set'] = set_
-    identifier = (request.GET.get("identifier") or \
-                  request.POST.get("identifier"))
-    if identifier:
-        request_kw['identifier'] = identifier
-    res_token = (request.GET.get("resumptionToken") or \
-                 request.POST.get("resumptionToken"))
-    if res_token:
-        request_kw['resumptionToken'] = res_token
-        
-    content = oaipmh_server.handleRequest(request_kw)
-    return HttpResponse(content=content,
-                    status=200,
-                    content_type="text/xml")
+    oaipmh_proto_server.set_multivalue_arg(multivalue_arg)
+    content = oaipmh_server.handleRequest(arguments)
+    return HttpResponse(
+        content=content,
+        status=200,
+        content_type="text/xml",
+    )

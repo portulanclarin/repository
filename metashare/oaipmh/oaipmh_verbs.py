@@ -5,7 +5,7 @@ import cgi
 from collections import OrderedDict
 from lxml import etree
 from hashlib import md5
-from json import loads
+import json
 
 from oaipmh.client import Client
 from oaipmh.metadata import MetadataRegistry
@@ -33,7 +33,7 @@ def _client(base_URL, registry=None):
 def _registerReader(metadata_format):
     """
     """
-    #TODO, check namespaces    
+    #TODO, check namespaces
     if metadata_format in ("metashare", "cmdi", "olac"):
         metadata_registry = MetadataRegistry()
         metadata_registry.registerReader(metadata_format, Reader())
@@ -49,14 +49,14 @@ def ListRecords(kwargs):
     @required: url, metadata_format
     @return: dict of displayable items
     """
-    base_URL, metadata_format, from_, until, set_ = get_values(kwargs, 
+    base_URL, metadata_format, from_, until, set_ = get_values(kwargs,
                                                       ("base_URL", \
-                                                       "metadata_format", 
+                                                       "metadata_format",
                                                        "from_", \
                                                        "until", \
                                                        "set_"))
     from_ = (None if not from_ else datestamp_to_datetime(from_))
-    until = (None if not until else datestamp_to_datetime(until)) 
+    until = (None if not until else datestamp_to_datetime(until))
     client = _client(base_URL, _registerReader(metadata_format))
     dict_ = {}
     for header, metadata, about in client.listRecords(metadataPrefix=metadata_format, \
@@ -142,15 +142,15 @@ def Identify(kwargs):
     dict_["Admin emails"] = id_.adminEmails()
     return dict_
 
-def harvest(base_URL='http://www.language-archives.org/cgi-bin/olaca3.pl', 
-            metadata_format='olac', remote_id=None, from_=None, until=None, 
+def harvest(base_URL='http://www.language-archives.org/cgi-bin/olaca3.pl',
+            metadata_format='olac', remote_id=None, from_=None, until=None,
             set_=None, return_=False ):
     """
     Harvests record(s) from the client's repository.
     """
     OK_MSG = u"OK"
     from_ = (None if not from_ else datestamp_to_datetime(from_))
-    until = (None if not until else datestamp_to_datetime(until))   
+    until = (None if not until else datestamp_to_datetime(until))
     ret_d = OrderedDict()
     client = _client(base_URL, _registerReader(metadata_format))
     # get or create client's repository
@@ -198,7 +198,7 @@ def harvest(base_URL='http://www.language-archives.org/cgi-bin/olaca3.pl',
         list_records =  (client.listRecords(metadataPrefix=metadata_format, \
                                             from_=from_, \
                                             until=until, \
-                                            set=set_) 
+                                            set=set_)
                             if set_ else client.listRecords(metadataPrefix=metadata_format, \
                                                      from_=from_, \
                                                      until=until))
@@ -208,7 +208,7 @@ def harvest(base_URL='http://www.language-archives.org/cgi-bin/olaca3.pl',
         resources_to_update = {}
         # iterate the records and i) delete the records, which have the flag isDeleted=True,
         # ii) add the records that are not in the repository and iii) update the records that
-        # have updated metadata 
+        # have updated metadata
         for header, metadata, about in list_records:
             remote_id = header.identifier()
             if header.isDeleted():
@@ -227,7 +227,7 @@ def harvest(base_URL='http://www.language-archives.org/cgi-bin/olaca3.pl',
                     resources_to_add[remote_id] = raw_xml_record
                 else:
                     resources_to_update[remote_id] = raw_xml_record
-            
+
         #delete and remove from repo's dict the remaining resources if we harvest the whole collection
         if not (from_ or until or set_):
             resources_to_delete = set(repository.remote_ids()).difference(resources_to_update.keys())
@@ -236,7 +236,7 @@ def harvest(base_URL='http://www.language-archives.org/cgi-bin/olaca3.pl',
                 ret_d[remote_id] = html_mark_warning(u"This record is deleted.")
                 if deleted:
                     count_deleted_resources += 1
-                    
+
         #add the resources
         count_added_resources = 0
         for remote_id, raw_xml_record in resources_to_add.iteritems():
@@ -252,12 +252,12 @@ def harvest(base_URL='http://www.language-archives.org/cgi-bin/olaca3.pl',
                 LOGGER.error(exc, exc_info=True)
                 ret_d[remote_id] = html_mark_error(repr(exc))
             else:
-                count_added_resources += 1    
+                count_added_resources += 1
                 resource_name = resource.identificationInfo.get_default_resourceName()
                 ret_d[remote_id] = OK_MSG, \
                             repr(resource_name), \
                             resource.storage_object.identifier
-            
+
         #update resources
         count_updated_resources = 0
         for remote_id, raw_xml_record in resources_to_update.iteritems():
@@ -272,7 +272,7 @@ def harvest(base_URL='http://www.language-archives.org/cgi-bin/olaca3.pl',
             except Exception, exc:
                 LOGGER.error(exc, exc_info=True)
                 ret_d[remote_id] = html_mark_error(repr(exc))
-                                                           
+
         LOGGER.info(u'OAI-PMH: {} resources successfully added.'.format(count_added_resources))
         LOGGER.info(u'OAI-PMH: {} resources successfully updated.'.format(count_updated_resources))
         LOGGER.info(u'OAI-PMH: {} resources successfully deleted.'.format(count_deleted_resources))
@@ -306,48 +306,41 @@ def _compute_checksum(raw_xml_record):
     checksum = md5()
     checksum.update(raw_xml_record)
     return checksum.hexdigest()
-    
-    
+
 def _get_storage_json(storage_id):
     folder = os.path.join(STORAGE_PATH, storage_id)
     storage_file = open(("{0}/storage-global.json").format(folder))
     # read json string
-    storage_json_string = storage_file.read() 
+    storage_json_string = storage_file.read()
     # convert to json object
-    storage_json = loads(storage_json_string)
+    storage_json = json.loads(storage_json_string)
     storage_file.close()
     return storage_json
 
 def _convert_to_MSschema(metadataPrefix, raw_xml_record):
-    utf8_parser = etree.XMLParser(encoding='utf-8', remove_blank_text=True, ns_clean=True)
-            
-    def parse_from_unicode(unicode_str):
-        encoded_str = unicode_str.encode('utf-8')
-        return etree.fromstring(encoded_str, parser=utf8_parser)
-    
     if metadataPrefix == 'olac':
-        xslt_file = open( '{0}/../misc/tools/OLACConverters/olacToMetashare.xsl'.format(ROOT_PATH))
+        xslt_fname = 'OLACConverters/olacToMetashare.xsl'
     elif metadataPrefix == 'cmdi':
-        xslt_file = open( '{0}/../misc/tools/CMDIConverters/cmdiToMetashare.xsl'.format(ROOT_PATH))
-    elif metadataPrefix == 'oai_lom':
-        xslt_file = open( '{0}/../misc/tools/LOMConverter/lomToMetashare.xsl'.format(ROOT_PATH))
+        xslt_fname = 'CMDIConverters/cmdiToMetashare.xsl'
     else:
         return raw_xml_record
-    
-    xslt_root = etree.parse(xslt_file)
+    with open('{}/../misc/tools/{}'.format(ROOT_PATH, xslt_fname)) as f:
+        xslt_root = etree.parse(f)
     transform = etree.XSLT(xslt_root)
-    xml_root = parse_from_unicode(raw_xml_record) 
+    xml_root = etree.fromstring(
+        raw_xml_record.encode('utf-8'),
+        parser=etree.XMLParser(encoding='utf-8', remove_blank_text=True, ns_clean=True),
+    )
     metashare_elem = transform(xml_root)
-    xml = etree.tostring(metashare_elem)
-    return xml
-    
+    return etree.tostring(metashare_elem)
+
 def _add_resource(repository, remote_id, metadataPrefix, raw_xml_record, source_url):
     #TODO: copy_status = PROXY or MASTER. If PROXY then source_node=None
     #and source_url the harvested repo's url. If MASTER then source_node= None
     #and source_url= our repo's url
     xml_record = _convert_to_MSschema(metadataPrefix, raw_xml_record)
     # if resource comes from a META-SHARE node, then the imported resource belongs to that
-    # repository and it has the same identifer as the remote identifier. 
+    # repository and it has the same identifer as the remote identifier.
     # Eitherwise the imported resource will have as master META-SHARE node, this node
     resource = (add_or_update_resource(None, xml_record, None, \
                                        source_node=source_url, \
@@ -363,7 +356,7 @@ def _add_resource(repository, remote_id, metadataPrefix, raw_xml_record, source_
     checksum = _compute_checksum(raw_xml_record)
     so = resource.storage_object
     repository[remote_id] = [so, checksum]
-    return resource 
+    return resource
 
 def _update_resource(repository, remote_id, metadataPrefix, raw_xml_record):
     storage_object, checksum = repository[remote_id]
@@ -381,18 +374,18 @@ def _update_resource(repository, remote_id, metadataPrefix, raw_xml_record):
                                       source_node=storage_object.source_node)
     so = resource.storage_object
     repository[remote_id] = [so, new_checksum]
-    return resource, True  
+    return resource, True
 
 def _delete_resource(repository, remote_id, remove=False):
     if repository.contains(remote_id):
         so, _dc = repository[remote_id]
         if remove: # this record is removed from the client's repo, so remove it
-            del repository[remote_id] 
+            del repository[remote_id]
         so.deleted = True
         so.save()
         # explicitly write metadata XML and storage object to the storage folder
         so.update_storage()
         # update statistics
-        saveLRStats(so.resourceinfotype_model_set.all()[0], DELETE_STAT) 
+        saveLRStats(so.resourceinfotype_model_set.all()[0], DELETE_STAT)
         return True
-    return False 
+    return False
